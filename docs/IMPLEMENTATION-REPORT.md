@@ -14,7 +14,10 @@ Paths:
 
 - Application: `/root/.openclaw/workspace/projects/loragotchi-community-tank`
 - Firmware: `/root/.openclaw/workspace/projects/LoRagotchi-RX`, branch
-  `feature/community-tank-rx`, production commit **d1e078f**, base **6a7b41a**.
+  `feature/community-tank-rx`, reviewed head **af5309a**, base **6a7b41a**.
+  Parent review added CPU-width-independent RX numeric validation after the
+  initial **d1e078f** prototype. RX USB/BLE images were rebuilt; unchanged normal
+  DX images remain from d1e078f, with exact source recorded per artifact.
 - Original DX checkout untouched. New app is its own local Git project; its exact
   source revision is available with `git rev-parse HEAD` after the initial commit.
 - No remote has been created for the app; no branch was pushed.
@@ -72,7 +75,7 @@ No live connection was attempted during development.
 |---|---|
 | Application pytest | **19 passing**: parser, crash/save-before-ACK replay, identity collisions, refresh/colour policy, normal-message separation, actual TCP loopback/HMAC and serial PTY I/O, simulation/settings, firmware golden bytes and PC client against production C++ RX command core |
 | Native renderer/operator smoke | **Passed**: roster, panel, quality/no culling, scale, resize, selection, removal, session clear; single/two-frustum frozen-world reconstruction mean RGB difference **0.0000021** |
-| Production RX/return core | **12 scenarios passed**: duplicate/short COMMIT, hold/early recall, identity collisions, reset, full queue, failed persistence/ACK, bounded attempts, consumer lease, corrupt-bank fail-closed, stale tombstones |
+| Production RX/return core | **13 scenarios passed**: duplicate/short COMMIT, hold/early recall, identity collisions, reset, full queue, failed persistence/ACK, bounded attempts, consumer lease, corrupt-bank fail-closed, stale tombstones, CPU-width-independent numeric boundaries |
 | Extracted production DX handlers | **4 checks passed**: full-key identity, real mono/colour return, bounded retries, existing unsolicited return, late ARRIVED/duplicate RETURN, missing owner contact |
 | New normal-DX menu route | **Passed with and without sound** from aquarium through Options; browse/send guards, disappearing guest and 128x64 status bounds |
 | Firmware native suites | **99/99 passed** (`native`, `native_kiss_modem`) |
@@ -103,6 +106,16 @@ PNG captures (actual native app, visually inspected):
   viewports sharing the same simulation. Low quality is intentionally visible.
 
 ## Honest support matrix / remaining work
+
+Parent review recovered the completed local work after the completion handoff
+failed to surface in chat. App tests were rerun (19 passed) and native rendering/
+operator/two-view checks passed under software GL. The RX source review found
+that `strtoul` overflow handling depended on host word size; checked decimal
+accumulation now rejects overflow before multiplication on both MCU and host.
+Thirteen production-core scenarios and both rebuilt RX images pass; esptool
+checksum/hash validation was repeated. All five firmware files match the updated
+manifest. Original accepted DX checkout remains unchanged. This is a local
+prototype review, not an exhaustive audit or physical hardware acceptance.
 
 | Area | Implemented / tested | Still outstanding |
 |---|---|---|
