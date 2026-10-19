@@ -7,6 +7,7 @@ from direct.gui import DirectGuiGlobals as DGG
 from direct.gui.DirectGui import DirectFrame, DirectLabel, DirectButton, DirectOptionMenu, DirectSlider, DirectEntry
 from .connection import ConnectionProfile
 from .settings import PRESETS
+from .deadzone_panel import DeadzonePanel
 
 
 class OptionsPanel:
@@ -25,12 +26,14 @@ class OptionsPanel:
         self.label(self.root,'TANK CONTROLS',18,29,17)
         self.button(self.root,'×',389,25,25,app.toggle_panel)
         self.tabs = {
-            'Aquarium': self.button(self.root,'Aquarium',18,66,190,lambda:self.page('Aquarium')),
-            'RX Radio': self.button(self.root,'RX Radio',224,66,190,lambda:self.page('RX Radio')),
+            'Aquarium': self.button(self.root,'Aquarium',18,66,126,lambda:self.page('Aquarium')),
+            'RX Radio': self.button(self.root,'RX Radio',153,66,126,lambda:self.page('RX Radio')),
+            'Deadzones': self.button(self.root,'Deadzones',288,66,126,lambda:self.page('Deadzones')),
         }
         self.pages = {name:DirectFrame(parent=self.root,frameColor=(0,0,0,0)) for name in self.tabs}
         self.build_aquarium(self.pages['Aquarium'])
         self.build_radio(self.pages['RX Radio'])
+        self.deadzones=DeadzonePanel(self,self.pages['Deadzones'])
         self.page('Aquarium'); self.resize(); self.root.hide()
 
     def label(self,parent,text,x,y,size=14,wrap=None):
@@ -81,7 +84,7 @@ class OptionsPanel:
         a.scale_label=self.label(parent,'',18,207,12)
         self.button(parent,'Apply scale',18,240,120,a.apply_scale)
         self.button(parent,'Fullscreen [F]',150,240,126,a.fullscreen)
-        self.button(parent,'2nd window [V]',288,240,126,a.toggle_wall)
+        self.button(parent,'Add window [V]',288,240,126,a.add_window)
         a.output_label=self.label(parent,'',18,272,12)
         self.label(parent,'DISPLAYED FISH',18,336,12)
         a.fish_label=self.label(parent,'',18,363,14,392)

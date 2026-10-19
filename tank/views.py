@@ -78,7 +78,7 @@ class NameLabels:
         for key, (label, name) in self.labels.items():
             model = models[key][0]
             visible = lens.project(camera.getRelativePoint(render, model.getPos(render)), self.point)
-            visible = visible and abs(self.point.x) < 1.1 and abs(self.point.y) < 1.1
+            visible = visible and not model.isHidden() and abs(self.point.x) < 1.1 and abs(self.point.y) < 1.1
             if visible:
                 label.setPos(self.point.x*aspect, 0, self.point.y+.07)
                 if label.isHidden():
@@ -97,6 +97,8 @@ class AquariumView:
         self.app = app
         self.window = window
         self.primary = primary
+        self.view_id = 0
+        self.input = None
         self.buffer = self.camera = self.screen = self.overlay_camera = None
         self.internal_size = None
         self.output_size = None

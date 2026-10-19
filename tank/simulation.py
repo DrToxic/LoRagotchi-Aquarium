@@ -44,6 +44,9 @@ class Swimmer:
         self.obstacle_wait = rng.uniform(0, .2)
         self.obstacle_ahead = False
         self.radius = 1.1*FISH_SCALES[stage]
+        self.outline = 1.75*FISH_SCALES[stage]
+        self.parked = False
+        self.replan_wait = 0.
 
 
 class Simulation:
@@ -57,20 +60,24 @@ class Simulation:
         self.occupancy = {}
         self.reservations = {}
         self._view_config = None
+        self._layout_dirty = False
 
-    def set_view(self, origin, right, forward, up, tan_x, tan_y, regions):
-        config = (tuple(origin), tuple(right), tuple(forward), tuple(up), tan_x, tan_y, tuple(regions))
+    def set_view(self, origin, right, forward, up, tan_x, tan_y, regions, zones=(), constrain=True):
+        config = (tuple(origin), tuple(right), tuple(forward), tuple(up), tan_x, tan_y, tuple(regions), tuple(zones), constrain)
         if config == self._view_config:
             return
         self._view_config = config
         self.volume.configure(*config)
-        # Replan soon after a real frustum change, without resetting positions.
+        # Repair only newly hidden fish on the next simulation frame. A frozen
+        # renderer can change crops without mutating the reference scene.
+        self._layout_dirty = True
         for s in self.swimmers.values():
             s.remaining = min(s.remaining, 2.)
             s.goal_cell = None
         self.reservations.clear()
 
     def _choose_goal(self, s):
+        s.replan_wait=.8
         if s.goal_cell is not None:
             self.reservations[s.goal_cell] = max(0, self.reservations.get(s.goal_cell, 1)-1)
         # Prefer underused screen sectors, including edges/top/bottom. Nearby
@@ -79,9 +86,10 @@ class Simulation:
         for x in range(6):
             for z in range(4):
                 cell = (x, z)
-                point = self.volume.candidate(s.rng, s.radius, cell)
+                point = self.volume.candidate(s.rng, s.radius, cell, outline=s.outline)
                 if point is None or not self.physics.clear_at(s.stage, point, s.heading, static_only=True):
                     continue
+                if not self.volume.path_clear((s.x,s.y,s.z),point,s.outline):continue
                 distance = math.dist((s.x, s.y, s.z), point)
                 if distance < 2.5:
                     continue
@@ -91,6 +99,7 @@ class Simulation:
         if candidates:
             _, s.goal, s.goal_cell = min(candidates, key=lambda item: item[0])
         else:
+            s.goal = (s.x,s.y,s.z)
             s.goal_cell = self.volume.cell(s.goal)
         self.reservations[s.goal_cell] = self.reservations.get(s.goal_cell, 0)+1
         # Finish a journey before choosing another; short global re-roll timers
@@ -107,28 +116,62 @@ class Simulation:
                 if s.goal_cell is not None:
                     self.reservations[s.goal_cell] = max(0, self.reservations.get(s.goal_cell, 1)-1)
                 self.physics.remove(key)
+        unavailable=set()
         for key in sorted(by_owner):
             stage = by_owner[key].stage
             if key not in self.swimmers:
                 s = Swimmer(key, stage)
                 # Never cull an identity to make space. Try non-overlapping
                 # arrivals first; Bullet separates pathological overcapacity.
-                for _ in range(240):
-                    point = self.volume.candidate(s.rng, s.radius)
+                saw_candidate=False
+                for _ in range(0 if stage in unavailable else 240):
+                    point = self.volume.candidate(s.rng, s.radius, outline=s.outline)
+                    if point is not None:saw_candidate=True
                     if point is not None and self.physics.clear_at(stage, point, s.heading):
                         s.x, s.y, s.z = point
                         break
                 self.swimmers[key] = s
                 self.physics.add(key, stage, (s.x, s.y, s.z), s.heading)
-                self._choose_goal(s)
+                if saw_candidate:self._choose_goal(s)
+                else:
+                    unavailable.add(stage);s.parked=True
             elif self.swimmers[key].stage != stage:
                 s = self.swimmers[key]
                 s.stage, s.radius = stage, 1.1*FISH_SCALES[stage]
+                s.outline = 1.75*FISH_SCALES[stage]
                 self.physics.add(key, stage, (s.x, s.y, s.z), s.heading)
         self.swimmers = dict(sorted(self.swimmers.items()))
+        self._layout_dirty = True
+
+    def _repair_layout(self):
+        from panda3d.core import BitMask32, Vec3
+        unavailable=set()
+        for key,s in self.swimmers.items():
+            origin=(s.x,s.y,s.z)
+            if not s.parked and self.volume.allows(origin,s.outline):continue
+            choices=[]
+            fallback=None
+            for _ in range(0 if s.stage in unavailable else 100):
+                point=self.volume.candidate(s.rng,s.radius,outline=s.outline)
+                if point is None:continue
+                if self.physics.clear_at(s.stage,point,s.heading,ignore=key,static_only=True):fallback=point
+                if self.physics.clear_at(s.stage,point,s.heading,ignore=key):
+                    choices.append((math.dist(origin,point),point))
+                    if len(choices)>=12:break
+            point=min(choices)[1] if choices else fallback
+            s.parked=point is None
+            if s.parked:unavailable.add(s.stage)
+            body=self.physics.bodies[key]
+            body.node().setIntoCollideMask(BitMask32.allOff() if s.parked else BitMask32.allOn())
+            body.node().setLinearVelocity(Vec3(0,0,0))
+            if point is not None:
+                s.x,s.y,s.z=point;body.setPos(*point)
+            s.remaining=0.
+        self._layout_dirty=False
 
     def step(self, dt):
         dt = clamp(dt, 0., .1)
+        if dt and self._layout_dirty:self._repair_layout()
         steps = max(1, math.ceil(dt/(1/60)))
         for _ in range(steps):
             self._advance(dt/steps)
@@ -142,15 +185,20 @@ class Simulation:
         buckets = {}
         self.occupancy = {}
         for key, s in self.swimmers.items():
+            if s.parked:continue
             cell = (int(s.x//4), int(s.y//4), int(s.z//4))
             buckets.setdefault(cell, []).append((key, s.x, s.y, s.z, s.radius))
             sector = self.volume.cell((s.x, s.y, s.z))
             self.occupancy[sector] = self.occupancy.get(sector, 0)+1
         velocities = {}
+        previous={key:(s.x,s.y,s.z) for key,s in self.swimmers.items()}
         for key, s in self.swimmers.items():
+            if s.parked:
+                velocities[key]=(0.,0.,0.);continue
             s.remaining -= dt
+            s.replan_wait -= dt
             distance = math.dist((s.x, s.y, s.z), s.goal)
-            if s.remaining <= 0 or distance < 1.3:
+            if s.replan_wait<=0 and (s.remaining <= 0 or distance < 1.3):
                 self._choose_goal(s)
             gx, gy, gz = s.goal
             dx, dy = gx-s.x, gy-s.y
@@ -183,6 +231,9 @@ class Simulation:
             if s.obstacle_wait <= 0:
                 look = (s.x+forward_x*(s.speed*1.4+.4), s.y+forward_y*(s.speed*1.4+.4), s.z+s.vz)
                 s.obstacle_ahead = not self.physics.clear_at(s.stage, look, s.heading, static_only=True)
+                if not self.volume.path_clear((s.x,s.y,s.z),look,s.outline):
+                    s.remaining=0.
+                    s.obstacle_ahead=True
                 s.obstacle_wait = .2
             if s.obstacle_ahead:
                 sx += forward_y*1.2; sy -= forward_x*1.2
@@ -208,3 +259,21 @@ class Simulation:
             s.phase += dt*s.tail_rate*(.55+s.speed*.65)
             velocities[key] = (math.cos(s.heading)*s.speed, math.sin(s.heading)*s.speed, s.vz)
         self.physics.advance(self.swimmers, velocities, dt)
+        if not dt:return
+        from panda3d.core import Vec3
+        for key,s in self.swimmers.items():
+            if s.parked:continue
+            start=previous[key];end=(s.x,s.y,s.z)
+            if not self.volume.sweep_clear(start,end,s.outline):
+                # Stop at the last visible point, never tunnel across desktop
+                # gaps or small keep-outs even after a long frame/solver shove.
+                lo,hi=0.,1.
+                for _ in range(10):
+                    mid=(lo+hi)/2
+                    point=tuple(a+(b-a)*mid for a,b in zip(start,end))
+                    if self.volume.sweep_clear(start,point,s.outline):lo=mid
+                    else:hi=mid
+                s.x,s.y,s.z=tuple(a+(b-a)*lo for a,b in zip(start,end))
+                body=self.physics.bodies[key];body.setPos(s.x,s.y,s.z)
+                body.node().setLinearVelocity(Vec3(0,0,0))
+                s.remaining=0.

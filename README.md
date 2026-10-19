@@ -67,22 +67,23 @@ uv run loragotchi-tank --demo --detail 12 --plants 10 --bubbles 4 --fps 30 --no-
 ```
 
 `Tab`: operator controls · `F`: borderless fullscreen · `1…5`: quality presets · `N`: names ·
-`V`: open/close second window · click/right arrow: select fish · `Delete`: remove selected copy ·
-`Esc`: close panel, then exit. While editing a radio field, aquarium shortcuts are
+`V`: add another window (up to eight) · click/right arrow: select fish · `Delete`: remove selected copy ·
+`Esc`: close panel, then exit. While editing a text field, aquarium shortcuts are
 suspended and `Tab` advances to the next field. End display session asks for a second click; this
 hides display copies and never sends a radio RETURN. New shares can reappear.
 
-The second view is now a **real, independently movable/resizable window**, not a
-split screen. Both windows share the same fish and simulation. Their OS-reported
+Each view is a **real, independently movable/resizable OS window**, not a split
+screen. All windows share the same fish and simulation. Their OS-reported client
 positions and sizes determine continuous camera crops, including vertical offsets
-and monitors to the left of the primary display. The gap between windows remains
-a gap in the virtual aquarium. Move/resize the windows to match your desktop;
+and negative desktop coordinates. Move/resize windows to match your setup;
 changing the combined window bounds reframes the shared scene.
 
-In the second window, `N` toggles names, `F` toggles its fullscreen mode,
-click/right arrow selects a fish, and `V`, `Esc`, or its close button closes only
-that window. Operator controls stay in the main window. To reopen, press `V` in
-the main window. On Windows, fullscreen uses the containing monitor’s bounds without changing its
+In an additional window, `N` toggles names, `F` toggles that window's fullscreen,
+click/right arrow selects fish, `V` adds a view, and `Esc`/the close button closes
+only that view. `Tab` toggles controls in the **main** window. Windows can also be
+selected, added, closed and made fullscreen in **Tab → Deadzones**.
+
+On Windows, fullscreen uses the containing monitor’s bounds without changing its
 display mode; toggling back restores the previous window size and position. This
 also avoids requesting unsupported client sizes such as 1920×1009 as monitor
 modes. The Windows API path, mixed-DPI coordinates and mixed-refresh frame pacing
@@ -92,9 +93,44 @@ No multi-host sync or bezel calibration.
 
 Fish choose longer journeys into underused visible-water sectors, with independent
 cruising speeds, gradual turns and slow glides. Destinations adapt to the combined
-window view; resizing does not teleport fish. Graphics changes or re-sharing do
-not reset their swimming state. Names retain the cached text geometry introduced
+window view. Ordinary swimming and graphics changes preserve individual state;
+newly hidden fish are relocated when a window/deadzone layout changes. Names retain the cached text geometry introduced
 in v0.1.1.
+
+### Deadzones and display layouts (v0.1.4)
+
+Open **Tab → Deadzones**. **Edges: on** is the default: the complete fish silhouette
+(body, fins and tail) stays within the union of non-minimized aquarium window
+areas. Fish can cross adjoining/overlapping edges, but cannot swim through a gap
+or missing corner between windows. Disconnected areas keep their fish until the
+layout changes; they do not secretly cross the desktop. Manual zones work at all
+fish depths. **Edges: off** restores unrestricted gap-crossing; zones still apply.
+
+- **Add / Close:** up to eight native windows. Select a view in the dropdown;
+  the main view cannot be closed here. New views cascade so you can place them.
+- **Save layout:** remembers current window positions, sizes and count for next
+  launch. `--wall-columns 1` ignores saved window geometry; `--wall-columns N`
+  explicitly starts 1–8 windows. Each window is still freely movable/resizable.
+- **New zone → shape → Apply:** rectangle (independent width/height, including squares),
+  rounded rectangle (quarter-short-side corner radius) or ellipse (equal physical
+  dimensions give a circle). Up to 16 zones; cycle with `<`/`>`, edit, disable or
+  delete individually. Apply automatically saves zones and edge protection.
+- **Left / Top / Width / Height:** percentages of the *whole combined layout*,
+  measured from its top-left corner. Click the preview to set the draft centre,
+  then Apply. Percentages follow layout resizing; check them after rearranging
+  monitors. They are not percentages of the selected window.
+- **Outlines:** toggles visible coral-coloured borders across the aquarium views;
+  preview outlines are always available. Scenery remains visible inside zones.
+
+The preview shows window rectangles in teal, gaps in dark, and exclusions in
+coral. Geometry is stored beside settings in `display-layout.json`, separate from
+radio preferences and the fish database. It does not auto-detect Explorer or
+other applications covering an aquarium: reserve those spaces with manual zones.
+Keep windows on your actual monitors; off-desktop client areas are not separately
+clipped to monitor hardware boundaries. Mixed-DPI Windows placement still needs
+hardware testing. If no valid water can fit a fish, it waits off-view with its
+identity retained; the footer reports the count. Removing the obstruction or
+changing the layout returns it. Dense crowds still need sufficient swim space.
 
 Collision detection uses Bullet, already included with Panda3D: stage-sized fish
 body capsules, solid reef rock/coral shapes, and tank/floor boundaries. Predictive
@@ -201,10 +237,10 @@ connection-lifecycle checks. Physical USB/BLE/RX interoperability remains unveri
 | Linux x86_64 | Native rendering and operator callbacks tested under Xvfb/Mesa llvmpipe |
 | Modern Raspberry Pi | Design target; ARM64 engine wheels exist, no physical Pi validation |
 | Original Pi / Zero / 32-bit ARM | **Not established**: packaging, driver and performance gate remains open |
-| Windows | Owner tested initial prototype at 256 fish on i7-11700F / RTX 3060; v0.1.2 functionally accepted; v0.1.3 radio UI/hardware retest pending, no installer |
+| Windows | Owner tested initial prototype at 256 fish on i7-11700F / RTX 3060; v0.1.2 functionally accepted; v0.1.4 multi-window/deadzone retest pending, physical RX link unverified, no installer |
 | macOS | Opportunistic; untested |
 | 1080p/4K | Arbitrary output dimensions and independent render scale; 1080p tested, 4K not benchmarked |
-| Video wall | Two real OS windows, unequal-size/offset frusta and shared-world reconstruction tested on Linux Xvfb; Windows/mixed-DPI placement unverified, no multi-host sync/bezel calibration |
+| Video wall | Up to eight native OS windows; three-window offset animation, lifecycle, saved-layout restore and two-window reconstruction tested on Linux Xvfb; Windows/mixed-DPI placement unverified, no multi-host sync/bezel calibration |
 | USB | Actual serial I/O tested via pseudoterminal, physical RX untested |
 | BLE | Concrete adapter + BLE firmware build; packet contract tested, physical link untested |
 | WLAN/TCP | Authenticated bridge over actual loopback sockets tested; physical LAN/radio untested |
@@ -226,6 +262,7 @@ unverified claim that this Python stack already supports every Pi.
 ```sh
 uv run pytest -q
 uv run python tools/run_render_smoke.py
+uv run python tools/deadzones_smoke.py
 uv run python tools/headless_capture.py --demo 16 --preset high \
   --screenshot .local/aquarium.png --run-seconds 6 --settings .local/settings.json
 ```
@@ -235,11 +272,11 @@ because they require the separate sibling RX source; the aquarium tests still
 run. Install the test extra (`uv sync --extra test` or `python -m pip install -e
 '.[test]'`) before running pytest.
 
-The last two commands require Linux Xvfb. They launch only a temporary local X
+The rendering commands require Linux Xvfb. They launch only a temporary local X
 server (`-nolisten tcp`); no xauth installation or system config change is needed.
 Software-renderer timings are not GPU or Pi FPS evidence.
 
-See [v0.1.2 testing notes](docs/TESTING-v0.1.2.md), [implementation report](docs/IMPLEMENTATION-REPORT.md),
+See [v0.1.4 testing notes](docs/TESTING-v0.1.4.md), [v0.1.3 radio testing notes](docs/TESTING-v0.1.3.md), [v0.1.2 testing notes](docs/TESTING-v0.1.2.md), [implementation report](docs/IMPLEMENTATION-REPORT.md),
 [protocol](docs/RX-PROTOCOL.md), [asset attribution](assets/ATTRIBUTION.md), and
 [firmware handoff notes](docs/FIRMWARE.md). No radio has been flashed or used over
 the air by this implementation task.

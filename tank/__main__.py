@@ -21,7 +21,7 @@ def main():
     parser.add_argument("--no-vsync",action="store_true")
     parser.add_argument("--fullscreen",action="store_true",help="borderless monitor-sized window; no display-mode switch")
     parser.add_argument("--operator",action="store_true",help="show operator controls at startup")
-    parser.add_argument("--wall-columns",type=int,choices=(1,2),default=1,help="one or two separate aquarium windows")
+    parser.add_argument("--wall-columns",type=int,choices=range(1,9),default=None,help="1–8 native windows (default: saved layout or one window)")
     parser.add_argument("--second-width",type=int,help="second window width (defaults to primary)")
     parser.add_argument("--second-height",type=int,help="second window height (defaults to primary)")
     parser.add_argument("--second-origin",type=int,nargs=2,metavar=("X","Y"),help="second window desktop position; negative monitor coordinates allowed")

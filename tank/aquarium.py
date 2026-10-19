@@ -13,10 +13,16 @@ from .views import AquariumView, desktop_lenses
 from .window_mode import WindowModes
 from .service import Service
 from .options import OptionsPanel
+from .deadzones import DisplayProfile, MAX_WINDOWS
 
 class Aquarium(ShowBase):
     def __init__(self,args):
         self.args=args;self.settings=Settings.load(args.settings)
+        self.display_path=Path(args.settings).with_name('display-layout.json')
+        self.display=DisplayProfile.load(self.display_path)
+        self.restore_rectangles=self.display.windows if args.wall_columns is None else []
+        if self.restore_rectangles:args.width,args.height=self.restore_rectangles[0][2:]
+        self.start_windows=args.wall_columns or len(self.restore_rectangles) or 1
         if args.preset:self.settings.apply(args.preset)
         if args.render_scale is not None:self.settings.scale=args.render_scale
         for field in ("detail","plants","bubbles","fps"):
@@ -39,6 +45,7 @@ class Aquarium(ShowBase):
         self.camera.setPos(0,-32,12);self.camera.lookAt(0,0,5.5)
         self.cam.node().setActive(False)
         self.views=[];self.second_window=None;self.second_input=None;self._configuring_output=False
+        self._next_view_id=1;self._destroying=False
         self._layout=None;self._ui_text={};self._next_ui_update=0.
         self.window_modes=WindowModes(self.pipe)
         self.buffer=None;self.screen=None;self.view_cameras=[]
@@ -49,18 +56,22 @@ class Aquarium(ShowBase):
         self.build_panel()
         if args.operator:self.toggle_panel()
         self.accept("tab",self.tab);self.accept("escape",self.escape);self.accept("f",self.shortcut,[self.fullscreen])
-        self.accept("n",self.shortcut,[self.toggle_names]);self.accept("v",self.shortcut,[self.toggle_wall]);self.accept("arrow_right",self.shortcut,[self.select_next])
+        self.accept("n",self.shortcut,[self.toggle_names]);self.accept("v",self.shortcut,[self.add_window]);self.accept("arrow_right",self.shortcut,[self.select_next])
         self.accept("delete",self.shortcut,[self.remove_selected]);self.accept("mouse1",self.select_fish)
         for i,name in enumerate(PRESETS,1):self.accept(str(i),self.shortcut,[self.set_preset,name])
         self.accept("window-event",self.on_window)
-        if args.wall_columns==2:self.open_second_window()
+        if self.restore_rectangles:
+            props=WindowProperties();props.setOrigin(*self.restore_rectangles[0][:2]);self.win.requestProperties(props)
+        for i in range(1,self.start_windows):
+            self.add_window(self.restore_rectangles[i] if self.restore_rectangles else None)
+        self._sync_secondary()
         if args.fullscreen:self.fullscreen()
         self.service=Service(args)
         self.taskMgr.add(self.update,"aquarium-update")
         gsg=self.win.getGsg()
         print(f"Renderer: {gsg.getDriverVendor()} / {gsg.getDriverRenderer()} / {gsg.getDriverVersion()}",flush=True)
         print(f"Output {self.win.getXSize()}x{self.win.getYSize()}, internal {self.internal_size}, {args.wall_columns} shared-world viewport(s)",flush=True)
-        print("Controls: Tab operator panel; F borderless fullscreen; 1..5 quality; N names; V second window; click/right-arrow select; Delete remove copy; Esc close",flush=True)
+        print("Controls: Tab operator panel; F borderless fullscreen; 1..5 quality; N names; V add window; click/right-arrow select; Delete remove copy; Esc close",flush=True)
 
     def rebuild_scene(self):
         if hasattr(self,"decor"):self.decor.removeNode()
@@ -94,7 +105,8 @@ class Aquarium(ShowBase):
             for view in self.views:view.resize(self.settings.scale)
             rectangles=[view.rectangle() for view in self.views]
             if all(w>0 and h>0 for x,y,w,h in rectangles):
-                layout=tuple(rectangles)
+                active=tuple(not v.window.getProperties().getMinimized() for v in self.views)
+                layout=(tuple(rectangles),active,tuple(self.display.zones),self.display.constrain)
                 if layout!=self._layout:
                     for view,lens in zip(self.views,desktop_lenses(rectangles)):view.set_lens(lens)
                     left=min(x for x,y,w,h in rectangles);top=min(y for x,y,w,h in rectangles)
@@ -102,69 +114,82 @@ class Aquarium(ShowBase):
                     height=max(y+h for x,y,w,h in rectangles)-top
                     full=desktop_lenses([(left,top,width,height)])[0]
                     regions=tuple((2*(x-left)/width-1,2*(x+w-left)/width-1,
-                                   1-2*(y+h-top)/height,1-2*(y-top)/height) for x,y,w,h in rectangles)
+                                   1-2*(y+h-top)/height,1-2*(y-top)/height) for (x,y,w,h),visible in zip(rectangles,active) if visible)
                     rotation=self.camera.getQuat(self.render)
                     self.sim.set_view(tuple(self.camera.getPos(self.render)),tuple(rotation.getRight()),
                                       tuple(rotation.getForward()),tuple(rotation.getUp()),
                                       math.tan(math.radians(full.getHfov()/2)),
-                                      math.tan(math.radians(full.getVfov()/2)),regions)
+                                      math.tan(math.radians(full.getVfov()/2)),regions,self.display.zones,self.display.constrain)
                     self._layout=layout
+                    if hasattr(self,"controls"):self.controls.deadzones.redraw()
             # Kept for diagnostics and the primary-window controls.
             first=self.views[0]
             self.buffer,self.screen,self.internal_size=first.buffer,first.screen,first.internal_size
             self.view_cameras=[view.camera for view in self.views]
         finally:self._configuring_output=False
 
-    def open_second_window(self):
-        if self.second_window:return
-        props=WindowProperties()
-        props.setTitle("LoRagotchi Aquarium — second view")
-        props.setSize(self.args.second_width or self.win.getXSize(),self.args.second_height or self.win.getYSize())
-        props.setFullscreen(False)
-        if self.args.second_origin:
-            props.setOrigin(*self.args.second_origin)
-        else:
-            primary=self.win.getProperties()
-            props.setOrigin(primary.getXOrigin()+self.win.getXSize(),primary.getYOrigin())
-        # Let Panda create the native GL context for this window. Reusing the
-        # exact same GSG across GLX drawables can produce BadMatch/black windows.
-        window=self.openWindow(props=props,fbprops=self.win.getFbProperties(),
-                               makeCamera=False,type='onscreen')
+    def add_window(self, rectangle=None):
+        if len(self.views)>=MAX_WINDOWS:
+            self.status=f"Maximum {MAX_WINDOWS} aquarium windows";return
+        view_id=self._next_view_id;self._next_view_id+=1
+        props=WindowProperties();props.setTitle(f"LoRagotchi Aquarium — view {view_id+1}")
+        if rectangle is None:
+            width=self.args.second_width or self.win.getXSize()
+            height=self.args.second_height or self.win.getYSize()
+            if len(self.views)==1 and self.args.second_origin:
+                x,y=self.args.second_origin
+            else:
+                # A visible cascade is safer than opening off the desktop. Move
+                # the native window to its monitor before saving the layout.
+                last=self.views[-1].rectangle();x,y=last[0]+48,last[1]+48
+            rectangle=(x,y,width,height)
+        x,y,width,height=rectangle
+        props.setSize(width,height);props.setOrigin(x,y);props.setFullscreen(False)
+        window=self.openWindow(props=props,fbprops=self.win.getFbProperties(),makeCamera=False,type='onscreen')
         if window is None or not window.isValid():
             if window is not None:self.closeWindow(window)
-            self.args.wall_columns=1
-            self.status="Second window could not open"
-            return
-        self.second_window=window
-        view=AquariumView(self,window)
-        self.views.append(view)
-        view.names.sync(self.roster)
-        self.second_input=self.setupMouse(window,fMultiWin=True)
-        self.second_input.node().setPrefix('second-')
-        self.accept('second-v',self.toggle_wall)
-        self.accept('second-n',self.toggle_names)
-        self.accept('second-f',self.fullscreen,[window])
-        self.accept('second-escape',self.close_second_window)
-        self.accept('second-arrow_right',self.select_next)
-        self.accept('second-mouse1',self.select_fish,[view,self.second_input.getParent().node()])
-        self.args.wall_columns=2
-        self.setup_output()
+            self.status="Additional window could not open";return
+        view=AquariumView(self,window);view.view_id=view_id
+        self.views.append(view);view.names.sync(self.roster)
+        view.input=self.setupMouse(window,fMultiWin=True)
+        prefix=f'view-{view_id}-';view.input.node().setPrefix(prefix)
+        for key,callback,args in (
+            ('v',self.add_window,[]),('n',self.toggle_names,[]),('f',self.fullscreen,[window]),
+            ('escape',self.close_view,[view]),('arrow_right',self.select_next,[]),
+            ('tab',self.tab,[]),('mouse1',self.select_fish,[view,view.input.getParent().node()])):
+            self.accept(prefix+key,self.shortcut,[callback,*args])
+        self._sync_secondary();self.setup_output()
+        if hasattr(self,'controls'):self.controls.deadzones.refresh_windows(view_id)
+        return view
+
+    def _sync_secondary(self):
+        self.second_window=self.views[1].window if len(self.views)>1 else None
+        self.second_input=self.views[1].input if len(self.views)>1 else None
+        self.args.wall_columns=len(self.views)
+
+    def close_view(self,view):
+        if view.primary or view not in self.views:return
+        self.views.remove(view);self.window_modes.discard(view.window)
+        for event in ('v','n','f','escape','arrow_right','tab','mouse1'):self.ignore(f'view-{view.view_id}-'+event)
+        if view.input:view.input.getParent().getParent().removeNode()
+        view.destroy();self.closeWindow(view.window);self._sync_secondary()
+        if not self._destroying:
+            self.setup_output()
+            if hasattr(self,'controls'):self.controls.deadzones.refresh_windows()
+
+    def open_second_window(self):
+        if not self.second_window:return self.add_window()
 
     def close_second_window(self):
-        if not self.second_window:return
-        window=self.second_window
-        self.second_window=None
-        self.window_modes.discard(window)
-        view=self.views.pop()
-        view.destroy()
-        for event in ('v','n','f','escape','arrow_right','mouse1'):self.ignore('second-'+event)
-        if self.second_input:
-            # This is the isolated MouseAndKeyboard subtree, not the main input.
-            self.second_input.getParent().getParent().removeNode()
-            self.second_input=None
-        self.closeWindow(window)
-        self.args.wall_columns=1
+        if self.second_window:self.close_view(self.views[1])
+
+    def save_display(self,windows=False):
+        if windows:self.display.windows=[v.rectangle() for v in self.views]
         self.setup_output()
+        try:self.display.save(self.display_path)
+        except OSError as error:
+            self.status=f"Display settings could not save: {error}";return False
+        return True
 
     def sync_models(self):
         owners={f.owner for f in self.roster}
@@ -238,9 +263,10 @@ class Aquarium(ShowBase):
     def on_window(self,window):
         super().windowEvent(window)
         if not hasattr(self,'views'):return
-        if window==self.second_window and not window.getProperties().getOpen():
-            self.close_second_window()
-        elif window==self.win or window==self.second_window:
+        view=next((v for v in self.views if v.window==window),None)
+        if view and not view.primary and not window.getProperties().getOpen():
+            self.close_view(view)
+        elif view:
             if window.getProperties().getOpen():
                 self.setup_output()
                 if hasattr(self,"controls"):self.controls.resize()
@@ -274,14 +300,19 @@ class Aquarium(ShowBase):
                 if event.kind=="return_status":self.status=f"RX return {event.status} · snapshot kept"
         poses=self.sim.step(dt);t=self.sim.time
         for key,pose in poses.items():
-            model,tail,fins=self.models[key];model.setPos(pose.x,pose.y,pose.z);model.setHpr(pose.heading,pose.bank,pose.pitch)
+            model,tail,fins=self.models[key]
+            if self.sim.swimmers[key].parked != model.isHidden():
+                model.hide() if self.sim.swimmers[key].parked else model.show()
+            model.setPos(pose.x,pose.y,pose.z);model.setHpr(pose.heading,pose.bank,pose.pitch)
             tail.setH(math.sin(pose.phase)*22*pose.speed)
             for i,fin in enumerate(fins):fin.setH(math.sin(pose.phase*.65+i)*12)
         for node,phase in self.plants:node.setR(math.sin(t*.45+phase)*3)
         for node,x,y,phase,speed in self.bubbles:node.setPos(x+math.sin(t+phase)*.12,y,(phase+t*speed)%12)
         if self.caustic:self.caustic.setTexOffset(TextureStage.getDefault(),t*.009,t*.006)
         # Static text changes on data changes, not on every rendered frame.
-        self.set_ui_text(self.footer,f"{len(self.roster)} shared fish   ·   {self.status}   ·   {len(self.views)} window(s)   ·   Tab controls")
+        waiting=sum(s.parked for s in self.sim.swimmers.values())
+        space_note=f" · {waiting} waiting for swim space" if waiting else ""
+        self.set_ui_text(self.footer,f"{len(self.roster)} shared fish{space_note}   ·   {self.status}   ·   {len(self.views)} window(s)   ·   Tab controls")
         aspect=self.getAspectRatio();self.title.setX(-aspect+.07);self.subtitle.setX(-aspect+.07);self.footer.setX(-aspect+.07)
         now=time.monotonic()
         if self.panel_visible and now>=self._next_ui_update:
@@ -303,7 +334,8 @@ class Aquarium(ShowBase):
 
     def destroy(self):
         if hasattr(self,"service"):self.service.close()
-        if hasattr(self,"second_window") and self.second_window:self.close_second_window()
+        self._destroying=True
+        for view in list(getattr(self,"views",[]))[1:]:self.close_view(view)
         for view in getattr(self,"views",[]):view.destroy()
         self.views=[]
         super().destroy()
