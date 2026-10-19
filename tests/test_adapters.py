@@ -75,3 +75,38 @@ def test_windows_serial_does_not_request_unsupported_nonexclusive_mode(monkeypat
     SerialTransport('COM4')
     # serialwin32 rejects False; None keeps its inherently exclusive behavior.
     assert captured['exclusive'] is None
+
+
+def test_tcp_incomplete_handshake_closes_socket(monkeypatch):
+    class BrokenSocket:
+        closed=False
+        def settimeout(self,seconds):pass
+        def recv(self,size):return b''
+        def close(self):self.closed=True
+    sock=BrokenSocket()
+    monkeypatch.setattr(socket,'create_connection',lambda *a,**k:sock)
+    with pytest.raises(ConnectionError):TCPTransport('127.0.0.1',1234,b'x'*32)
+    assert sock.closed
+
+
+def test_ble_connect_cancellation_cleans_private_loop(monkeypatch):
+    import asyncio
+    import bleak
+    from tank.transport import BLETransport
+    clients=[];loops=[]
+    new_loop=asyncio.new_event_loop
+    def loop_factory():
+        loop=new_loop();loops.append(loop);return loop
+    class SlowBLE:
+        disconnected=False
+        def __init__(self,*args,**kw):clients.append(self)
+        async def connect(self):await asyncio.sleep(20)
+        async def disconnect(self):self.disconnected=True
+    monkeypatch.setattr(bleak,'BleakClient',SlowBLE)
+    monkeypatch.setattr(asyncio,'new_event_loop',loop_factory)
+    started=time.monotonic()
+    with pytest.raises(ConnectionAbortedError):
+        BLETransport('AA:BB:CC:DD:EE:FF',cancel=lambda:time.monotonic()-started>.15)
+    assert time.monotonic()-started<2
+    assert clients[0].disconnected and loops[0].is_closed()
+    assert not asyncio.all_tasks(loops[0])

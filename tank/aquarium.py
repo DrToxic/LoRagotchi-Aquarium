@@ -6,13 +6,13 @@ from panda3d.core import (AmbientLight,DirectionalLight,Fog,WindowProperties,
                          TransparencyAttrib,ClockObject,TextureStage,TextNode,loadPrcFileData)
 from direct.showbase.ShowBase import ShowBase
 from direct.gui.OnscreenText import OnscreenText
-from direct.gui.DirectGui import DirectFrame,DirectLabel,DirectButton,DirectOptionMenu,DirectSlider
 from .art import fish_model,scenery,ellipsoid,mesh
 from .settings import Settings,PRESETS
 from .simulation import Simulation
 from .views import AquariumView, desktop_lenses
 from .window_mode import WindowModes
 from .service import Service
+from .options import OptionsPanel
 
 class Aquarium(ShowBase):
     def __init__(self,args):
@@ -48,10 +48,10 @@ class Aquarium(ShowBase):
         self.footer=OnscreenText(text="",pos=(-1.68,-.94),scale=.028,fg=(.65,.8,.79,.8),align=TextNode.ALeft,mayChange=True)
         self.build_panel()
         if args.operator:self.toggle_panel()
-        self.accept("tab",self.toggle_panel);self.accept("escape",self.escape);self.accept("f",self.fullscreen)
-        self.accept("n",self.toggle_names);self.accept("v",self.toggle_wall);self.accept("arrow_right",self.select_next)
-        self.accept("delete",self.remove_selected);self.accept("mouse1",self.select_fish)
-        for i,name in enumerate(PRESETS,1):self.accept(str(i),self.set_preset,[name])
+        self.accept("tab",self.tab);self.accept("escape",self.escape);self.accept("f",self.shortcut,[self.fullscreen])
+        self.accept("n",self.shortcut,[self.toggle_names]);self.accept("v",self.shortcut,[self.toggle_wall]);self.accept("arrow_right",self.shortcut,[self.select_next])
+        self.accept("delete",self.shortcut,[self.remove_selected]);self.accept("mouse1",self.select_fish)
+        for i,name in enumerate(PRESETS,1):self.accept(str(i),self.shortcut,[self.set_preset,name])
         self.accept("window-event",self.on_window)
         if args.wall_columns==2:self.open_second_window()
         if args.fullscreen:self.fullscreen()
@@ -177,28 +177,15 @@ class Aquarium(ShowBase):
         for view in self.views:view.names.sync(self.roster)
 
     def build_panel(self):
-        self.panel=DirectFrame(frameColor=(.018,.065,.085,.95),frameSize=(-.02,.83,-1.83,.08),pos=(.83,0,.83))
-        def label(text,y,scale=.035):return DirectLabel(parent=self.panel,text=text,text_align=TextNode.ALeft,text_scale=scale,text_fg=(.82,.91,.88,1),frameColor=(0,0,0,0),pos=(.025,0,y))
-        label("TANK CONTROLS",0)
-        self.connection_label=label("",-.12,.025)
-        label("Graphics preset",-.27,.028)
-        self.preset_menu=DirectOptionMenu(parent=self.panel,items=list(PRESETS),initialitem=list(PRESETS).index(self.settings.preset) if self.settings.preset in PRESETS else 2,scale=.045,pos=(.025,0,-.35),command=self.set_preset)
-        label("Internal render scale",-.48,.028)
-        self.scale_slider=DirectSlider(parent=self.panel,range=(.25,1.5),value=self.settings.scale,pageSize=.05,scale=.32,pos=(.39,0,-.55),command=self.scale_label_update)
-        self.scale_label=label("",-.63,.025)
-        DirectButton(parent=self.panel,text="Apply scale",scale=.035,pos=(.23,0,-.71),command=self.apply_scale)
-        DirectButton(parent=self.panel,text="Fullscreen [F]",scale=.032,pos=(.60,0,-.71),command=self.fullscreen)
-        self.output_label=label("",-.82,.025)
-        self.fish_label=label("",-.96,.027)
-        DirectButton(parent=self.panel,text="Next fish",scale=.032,pos=(.18,0,-1.12),command=self.select_next)
-        DirectButton(parent=self.panel,text="Remove copy",scale=.032,pos=(.57,0,-1.12),command=self.remove_selected)
-        DirectButton(parent=self.panel,text="Names [N]",scale=.032,pos=(.18,0,-1.24),command=self.toggle_names)
-        DirectButton(parent=self.panel,text="2nd window [V]",scale=.032,pos=(.57,0,-1.24),command=self.toggle_wall)
-        self.message_label=label("Inbox: no messages",-1.39,.023)
-        self.end_button=DirectButton(parent=self.panel,text="End display session",scale=.032,pos=(.38,0,-1.60),command=self.end_session)
-        self.clear_confirm=0
-        label("Copies stay after originals return.\nTab closes controls · Esc exits",-1.72,.023)
-        self.panel.hide();self.scale_label_update()
+        self.controls=OptionsPanel(self)
+        self.panel=self.controls.root
+
+    def shortcut(self,callback,*args):
+        if not self.controls.editing():callback(*args)
+
+    def tab(self):
+        if self.panel_visible and self.controls.editing():self.controls.next_field()
+        else:self.toggle_panel()
 
     def scale_label_update(self):
         if hasattr(self,"scale_label") and hasattr(self,"scale_slider"):
@@ -211,6 +198,7 @@ class Aquarium(ShowBase):
         if hasattr(self,"scale_slider"):self.scale_slider["value"]=self.settings.scale
     def toggle_panel(self):
         self.panel_visible=not self.panel_visible
+        self.controls.blur()
         self.panel.show() if self.panel_visible else self.panel.hide()
     def escape(self):
         if self.panel_visible:self.toggle_panel()
@@ -253,7 +241,9 @@ class Aquarium(ShowBase):
         if window==self.second_window and not window.getProperties().getOpen():
             self.close_second_window()
         elif window==self.win or window==self.second_window:
-            if window.getProperties().getOpen():self.setup_output()
+            if window.getProperties().getOpen():
+                self.setup_output()
+                if hasattr(self,"controls"):self.controls.resize()
 
     def set_ui_text(self,widget,text):
         key=id(widget)
@@ -274,7 +264,11 @@ class Aquarium(ShowBase):
                     for f in new:
                         if previous.get(f.owner)!=f and f.owner in self.models:self.models.pop(f.owner)[0].removeNode()
                     self.roster=new;self.sync_models()
-                elif kind=="connection":self.status=event["text"]
+                    self.controls.mode=event.get("mode",self.controls.mode)
+                elif kind=="connection":
+                    self.status=event["text"];self.controls.on_connection(event)
+                elif kind=="devices":self.controls.on_devices(event)
+                elif kind=="notice":self.status=event["text"]
                 elif kind=="mesh":self.inbox=(self.inbox+[event])[-100:]
             else:
                 if event.kind=="return_status":self.status=f"RX return {event.status} · snapshot kept"
@@ -289,15 +283,14 @@ class Aquarium(ShowBase):
         # Static text changes on data changes, not on every rendered frame.
         self.set_ui_text(self.footer,f"{len(self.roster)} shared fish   ·   {self.status}   ·   {len(self.views)} window(s)   ·   Tab controls")
         aspect=self.getAspectRatio();self.title.setX(-aspect+.07);self.subtitle.setX(-aspect+.07);self.footer.setX(-aspect+.07)
-        self.panel.setX(aspect-.9)
         now=time.monotonic()
         if self.panel_visible and now>=self._next_ui_update:
             self._next_ui_update=now+.15
-            self.set_ui_text(self.connection_label,self.status[:44]+("\n"+self.status[44:88] if len(self.status)>44 else ""))
+            self.controls.refresh()
             self.set_ui_text(self.output_label,f"Output {self.win.getXSize()}×{self.win.getYSize()}\nScene {self.internal_size[0]}×{self.internal_size[1]} · {len(self.views)} window(s)\n{self.settings.preset} · cap {self.settings.fps} fps")
             fish=self.roster[self.selected%len(self.roster)] if self.roster else None
             self.set_ui_text(self.fish_label,f"{fish.name} · {['fry','young','adult','elder'][fish.stage]}\n{fish.owner[:16]}…" if fish else "No shared fish yet")
-            self.set_ui_text(self.message_label,"Inbox: "+("\n".join(str(m.get('text',''))[:46] for m in self.inbox[-3:]) if self.inbox else "no messages"))
+            self.set_ui_text(self.message_label,"Inbox: "+("\n".join(str(m.get('text',''))[:56] for m in self.inbox[-2:]) if self.inbox else "no messages"))
         for view in self.views:
             view.names.update(self.show_names,view.lens,self.camera,self.render,self.models,view.aspect)
         elapsed=time.monotonic()-self.start

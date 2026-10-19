@@ -1,4 +1,4 @@
-# LoRagotchi-Aquarium · v0.1.2
+# LoRagotchi-Aquarium · v0.1.3
 
 A native **Python + Panda3D** aquarium for shared LoRagotchi fish. Real 3D fish,
 independent cruise/glide swimming, animated tails/turns, original procedural scenery, adjustable graphics, durable
@@ -45,8 +45,8 @@ py -3.12 -m venv .venv
 ```
 
 The Windows example assumes Python 3.12 is installed. The owner tested the initial
-prototype on Windows with 256 fish (i7-11700F / RTX 3060); this update still needs
-Windows acceptance. This is a source prototype, not a standalone installer.
+prototype on Windows with 256 fish (i7-11700F / RTX 3060), and accepted the
+v0.1.2 swimming/collision update. The new v0.1.3 radio controls need hardware testing. This is a source prototype, not a standalone installer.
 
 ```sh
 # Low-cost rendering on a high-resolution display; no automatic population loss.
@@ -68,7 +68,8 @@ uv run loragotchi-tank --demo --detail 12 --plants 10 --bubbles 4 --fps 30 --no-
 
 `Tab`: operator controls · `F`: borderless fullscreen · `1…5`: quality presets · `N`: names ·
 `V`: open/close second window · click/right arrow: select fish · `Delete`: remove selected copy ·
-`Esc`: close panel, then exit. End display session asks for a second click; this
+`Esc`: close panel, then exit. While editing a radio field, aquarium shortcuts are
+suspended and `Tab` advances to the next field. End display session asks for a second click; this
 hides display copies and never sends a radio RETURN. New shares can reappear.
 
 The second view is now a **real, independently movable/resizable window**, not a
@@ -108,6 +109,36 @@ hard-coded live population cap**. Graphics quality never culls real visitors.
 Names and operator UI are optional. Synthetic mode is clearly labelled.
 
 ## RX connections
+
+Press **Tab → RX Radio**. The panel stays a compact 432×594 output pixels even on
+1440p/4K displays, with separate **Aquarium** and **RX Radio** tabs; it scales down
+when a smaller window cannot fit it. Existing graphics/fish controls remain in
+the Aquarium tab.
+
+- **USB serial:** refresh the detected ports, choose your RX (or enter `COM4`,
+  `/dev/ttyUSB0`, etc.), then **Connect**. Baud rate is 115200.
+- **Bluetooth LE:** pair through your operating system first using the RX display
+  PIN. Scan, select a device (or enter its address/identifier), then **Connect**.
+  Discovery lists nearby BLE devices; finding one does not prove RX compatibility.
+- **Network bridge:** enter the bridge host/IP, port and the local path to its
+  32-byte token file. This connects to the PC/SBC bridge described below, not to
+  an assumed onboard Wi-Fi endpoint.
+
+The panel shows connecting/connected/retrying states and errors. A dropped link
+retries every three seconds until **Disconnect**. Disconnect also cancels a
+pending attempt; an in-flight radio request may finish first. Discovery and
+connection work run on the worker thread, not the renderer. Disconnect before
+scanning for another device. The app does not send chat replies or change radio
+settings from this panel.
+
+Connection details are remembered beside graphics settings in `rx-connection.json`;
+only the token **file path** is saved, never its contents. There is **no automatic
+connection at startup** unless you explicitly use `--connect`.
+
+Connecting while running a demo/replay switches to the separate default live
+collection; synthetic fish are not copied across. Even an explicit demo/replay
+`--database` remains separate. A live `--connect --database PATH` launch still
+uses your chosen database. Disconnect leaves the saved live fish swimming.
 
 Use only with RX firmware described in [the RX protocol](docs/RX-PROTOCOL.md).
 Stock/DX firmware does not implement this extension. No direct-message replies
@@ -160,6 +191,9 @@ line. Replayed events go through the production event parser and SQLite service:
 uv run loragotchi-tank --replay docs/example-replay.jsonl --preset balanced
 ```
 
+See [v0.1.3 testing notes](docs/TESTING-v0.1.3.md) for UI, cancellation and
+connection-lifecycle checks. Physical USB/BLE/RX interoperability remains unverified.
+
 ## Hardware and visual scope
 
 | Path | v0.1 evidence |
@@ -167,7 +201,7 @@ uv run loragotchi-tank --replay docs/example-replay.jsonl --preset balanced
 | Linux x86_64 | Native rendering and operator callbacks tested under Xvfb/Mesa llvmpipe |
 | Modern Raspberry Pi | Design target; ARM64 engine wheels exist, no physical Pi validation |
 | Original Pi / Zero / 32-bit ARM | **Not established**: packaging, driver and performance gate remains open |
-| Windows | Owner tested initial prototype at 256 fish on i7-11700F / RTX 3060; v0.1.2 multi-window/performance retest pending, no installer |
+| Windows | Owner tested initial prototype at 256 fish on i7-11700F / RTX 3060; v0.1.2 functionally accepted; v0.1.3 radio UI/hardware retest pending, no installer |
 | macOS | Opportunistic; untested |
 | 1080p/4K | Arbitrary output dimensions and independent render scale; 1080p tested, 4K not benchmarked |
 | Video wall | Two real OS windows, unequal-size/offset frusta and shared-world reconstruction tested on Linux Xvfb; Windows/mixed-DPI placement unverified, no multi-host sync/bezel calibration |

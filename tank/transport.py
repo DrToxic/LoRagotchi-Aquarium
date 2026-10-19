@@ -1,6 +1,8 @@
 """Real serial, TCP stream and BLE GATT adapters. No adapter writes radio DMs."""
 import asyncio
 import collections
+import concurrent.futures
+import contextlib
 import hashlib
 import hmac
 import os
@@ -51,17 +53,17 @@ class TCPTransport(StreamTransport):
     def __init__(self, host, port, token=None):
         super().__init__()
         self.socket=socket.create_connection((host,port),timeout=3)
-        self.socket.settimeout(3)
-        challenge=recv_exact(self.socket,36)
-        if challenge[:4]!=b"LRXB":
-            self.socket.close();raise ProtocolError("Not an authenticated LRX bridge")
-        if token is None:
-            self.socket.close();raise ProtocolError("Bridge token required")
-        proof=hmac.new(token,challenge[4:],hashlib.sha256).digest()
-        self.socket.sendall(proof)
-        if recv_exact(self.socket,2)!=b"OK":
-            self.socket.close();raise PermissionError("Bridge authentication rejected")
-        self.socket.settimeout(.1)
+        try:
+            self.socket.settimeout(3)
+            challenge=recv_exact(self.socket,36)
+            if challenge[:4]!=b"LRXB":raise ProtocolError("Not an authenticated LRX bridge")
+            if token is None:raise ProtocolError("Bridge token required")
+            proof=hmac.new(token,challenge[4:],hashlib.sha256).digest()
+            self.socket.sendall(proof)
+            if recv_exact(self.socket,2)!=b"OK":raise PermissionError("Bridge authentication rejected")
+            self.socket.settimeout(.1)
+        except BaseException:
+            self.socket.close();raise
     def read(self):
         try:
             data=self.socket.recv(1024)
@@ -80,12 +82,13 @@ class BLETransport:
     """
     RX="6e400002-b5a3-f393-e0a9-e50e24dcca9e"
     TX="6e400003-b5a3-f393-e0a9-e50e24dcca9e"
-    def __init__(self,address):
+    def __init__(self,address,cancel=None):
         from bleak import BleakClient
         self.events=queue.Queue(maxsize=256)
         self.loop=asyncio.new_event_loop()
         self.thread=threading.Thread(target=self.loop.run_forever,daemon=True)
         self.thread.start()
+        self.client=None;self.closed=False
         async def connect():
             self.client=BleakClient(address,timeout=20)
             await self.client.connect()
@@ -94,9 +97,19 @@ class BLETransport:
                 try:self.events.put_nowait(bytes(data))
                 except queue.Full:pass  # request timeout triggers a durable replay
             await self.client.start_notify(self.TX,notify)
-        try:asyncio.run_coroutine_threadsafe(connect(),self.loop).result(25)
+        future=asyncio.run_coroutine_threadsafe(connect(),self.loop)
+        deadline=time.monotonic()+25
+        try:
+            while True:
+                if cancel and cancel():raise ConnectionAbortedError('Connection cancelled')
+                if time.monotonic()>deadline:raise TimeoutError('Bluetooth connection timed out')
+                try:future.result(.1);break
+                except concurrent.futures.TimeoutError:
+                    if future.done():raise
         except Exception:
-            self.loop.call_soon_threadsafe(self.loop.stop);self.thread.join(2);raise
+            future.cancel()
+            with contextlib.suppress(Exception):self.close()
+            raise
     def send(self,payload):
         if len(payload)>20: raise ProtocolError("LRX writes must fit default BLE MTU")
         asyncio.run_coroutine_threadsafe(self.client.write_gatt_char(self.RX,payload,response=True),self.loop).result(5)
@@ -104,14 +117,22 @@ class BLETransport:
         try:return self.events.get(timeout=timeout)
         except queue.Empty:raise TimeoutError("BLE response timeout") from None
     def close(self):
-        try:asyncio.run_coroutine_threadsafe(self.client.disconnect(),self.loop).result(5)
-        finally:self.loop.call_soon_threadsafe(self.loop.stop);self.thread.join(2)
+        if self.closed:return
+        self.closed=True
+        async def cleanup():
+            if self.client is not None:await self.client.disconnect()
+        future=asyncio.run_coroutine_threadsafe(cleanup(),self.loop)
+        try:future.result(5)
+        finally:
+            future.cancel()
+            self.loop.call_soon_threadsafe(self.loop.stop);self.thread.join(2)
+            if not self.thread.is_alive():self.loop.close()
 
 
-def open_transport(uri,token=None):
+def open_transport(uri,token=None,cancel=None):
     if uri.startswith("serial:"):return SerialTransport(uri[7:])
-    if uri.startswith("ble:"):return BLETransport(uri[4:])
+    if uri.startswith("ble:"):return BLETransport(uri[4:],cancel)
     if uri.startswith("tcp:"):
         host,port=uri[4:].rsplit(":",1)
-        return TCPTransport(host,int(port),token)
+        return TCPTransport(host.strip('[]'),int(port),token)
     raise ValueError("Connection must be serial:PORT, ble:ADDRESS or tcp:HOST:PORT")

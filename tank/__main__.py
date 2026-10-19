@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
 import os
+from .connection import live_database
 
 def main():
     parser=argparse.ArgumentParser(description="LoRagotchi Community Tank — native 3D snapshot aquarium")
@@ -37,11 +38,12 @@ def main():
     if args.second_height is not None and args.second_height<180:parser.error("Second output height must be at least 180")
     if args.render_scale is not None and not .25<=args.render_scale<=2:parser.error("Render scale must be .25..2")
     if args.connect and args.connect.startswith('tcp:') and not args.token_file:parser.error("TCP bridge needs --token-file")
+    args.live_database=live_database()
     if not args.database:
         if args.demo is not None or args.replay:args.database=Path(':memory:')
         else:
-            data=Path(os.environ.get('XDG_DATA_HOME',Path.home()/'.local'/'share'))/'loragotchi-tank';data.mkdir(parents=True,exist_ok=True)
-            args.database=data/'live.sqlite'
+            args.live_database.parent.mkdir(parents=True,exist_ok=True)
+            args.database=args.live_database
     from .aquarium import Aquarium
     app=Aquarium(args)
     try:app.run()
