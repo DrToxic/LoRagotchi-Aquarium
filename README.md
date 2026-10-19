@@ -210,6 +210,15 @@ See [v0.1.2 testing notes](docs/TESTING-v0.1.2.md), [implementation report](docs
 [firmware handoff notes](docs/FIRMWARE.md). No radio has been flashed or used over
 the air by this implementation task.
 
+# Credits
+LoRagotchi Aquarium is by DrToxic, and is made for the LoRagotchi-DX firmware by
+Robert Rayner / M0YNW.
+
+Big thanks go out to Robert for letting me muck in on the project!
+
+Further thanks go to the MeshCore team for creating MeshCore in such a format that
+we can do these fun things!
+
 ## Related projects
 
 ### Looking for the Aquarium firmware?
