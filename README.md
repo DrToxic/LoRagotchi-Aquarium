@@ -1,0 +1,145 @@
+# LoRagotchi Community Tank · v0.1
+
+A native **Python + Panda3D** aquarium for shared LoRagotchi fish. Real 3D fish,
+animated tails/turns, original procedural scenery, adjustable graphics, durable
+snapshot storage, and USB/BLE/LAN adapters to the companion **LoRagotchi-RX**
+firmware prototype. No web server or Electron renderer.
+
+RX receives a normal DX visit, captures a snapshot, then proactively returns the
+original after about four seconds. Returning the original **does not remove the
+copy**. No local pet, care or breeding runs on RX. Copies do not age themselves;
+sharing again refreshes their appearance.
+
+## Quick start — no radio required
+
+With [uv](https://docs.astral.sh/uv/) installed:
+
+```sh
+uv sync --extra test
+uv run loragotchi-tank --demo 16 --preset high
+```
+
+Or use a standard virtual environment, `python -m pip install -e '.[test]'`, then
+`python -m tank --demo 16`. Windows: `py -m venv .venv`, activate it, then install
+with pip. Windows runtime has not yet been physically verified.
+
+```sh
+# Low-cost rendering on a high-resolution display; no automatic population loss.
+uv run loragotchi-tank --demo 24 --preset low --width 1920 --height 1080 --render-scale .5
+
+# One shared simulation rendered as two adjacent world-space camera crops.
+uv run loragotchi-tank --demo 24 --wall-columns 2 --width 1920 --height 1080
+
+# Display-sized fullscreen; output resolution remains distinct from scene scale.
+uv run loragotchi-tank --demo 16 --fullscreen --width 3840 --height 2160 --preset high
+
+# Manual overrides: implemented features only.
+uv run loragotchi-tank --demo --detail 12 --plants 10 --bubbles 4 --fps 30 --no-caustics
+```
+
+`Tab`: operator controls · `F`: fullscreen · `1…5`: quality presets · `N`: names ·
+`V`: one/two views · click/right arrow: select fish · `Delete`: remove selected copy ·
+`Esc`: close panel, then exit. End display session asks for a second click; this
+hides display copies and never sends a radio RETURN. New shares can reappear.
+
+Demo supports 0–256 synthetic fish as a bounded test generator; this is **not a
+hard-coded live population cap**. Graphics quality never culls real visitors.
+Names and operator UI are optional. Synthetic mode is clearly labelled.
+
+## RX connections
+
+Use only with RX firmware described in [the RX protocol](docs/RX-PROTOCOL.md).
+Stock/DX firmware does not implement this extension. No direct-message replies
+are sent by this PC client: RX is the sole LFG1 authority.
+
+```sh
+uv run loragotchi-tank --connect serial:/dev/ttyUSB0 --operator
+# Windows serial equivalent: --connect serial:COM4
+uv run loragotchi-tank --connect ble:AA:BB:CC:DD:EE:FF --operator
+```
+
+BLE uses the existing Nordic UART companion characteristics. Pair the device in
+your operating system with the PIN shown on its RX display. Each LRX fragment is
+at most 20 bytes, including headers, so no assumed large MTU or guessed stream
+reassembly is needed. Real BLE pairing/notification behavior is **untested**.
+Ordinary MeshCore inbox polling is disabled when Bleak cannot confirm an ATT MTU
+of at least 179; fish sharing still uses the small-fragment route.
+
+### WLAN / LAN via an explicit bridge
+
+The first iteration supplies a **real PC/SBC bridge**, not an onboard-Wi-Fi
+endpoint. A machine attached to RX by USB or BLE runs:
+
+```sh
+uv run loragotchi-rx-bridge --token-file .local/rx.token --init-token
+uv run loragotchi-rx-bridge --radio serial:/dev/ttyUSB0 --token-file .local/rx.token
+uv run loragotchi-tank --connect tcp:127.0.0.1:8765 --token-file .local/rx.token
+```
+
+For a trusted LAN, explicitly bind the bridge to its private LAN address and
+privately copy the token file to the aquarium machine. Do not expose this port
+to the Internet. Challenge/HMAC authenticates the client but **does not encrypt**
+traffic; use an SSH tunnel when confidentiality is needed. No Wi-Fi credentials
+or firewall rules are changed. One connected consumer at a time. The bridge
+allows only the RX extension and read-only MeshCore inbox polling, not arbitrary
+radio configuration/private-key commands. No onboard WLAN RX build is supplied.
+
+The live SQLite database defaults to `~/.local/share/loragotchi-tank/live.sqlite`
+(or `XDG_DATA_HOME`). Settings use `~/.config/loragotchi-tank/settings.json` (or
+`XDG_CONFIG_HOME`). `--database`, `--settings`, and `--session` override these.
+Demo/replay default to an **in-memory** database, never the live roster. A copy is
+keyed by full owner public key within a session; matching names/IDs can coexist.
+
+## Replay
+
+JSONL, one `{ "rx": "64 hex characters", "payload": "binary event as hex" }` per
+line. Replayed events go through the production event parser and SQLite service:
+
+```sh
+uv run loragotchi-tank --replay docs/example-replay.jsonl --preset balanced
+```
+
+## Hardware and visual scope
+
+| Path | v0.1 evidence |
+|---|---|
+| Linux x86_64 | Native rendering and operator callbacks tested under Xvfb/Mesa llvmpipe |
+| Modern Raspberry Pi | Design target; ARM64 engine wheels exist, no physical Pi validation |
+| Original Pi / Zero / 32-bit ARM | **Not established**: packaging, driver and performance gate remains open |
+| Windows | Cross-platform libraries/path handling; no Windows runtime or installer test |
+| macOS | Opportunistic; untested |
+| 1080p/4K | Arbitrary output dimensions and independent render scale; 1080p tested, 4K not benchmarked |
+| Video wall | Two contiguous off-axis viewports from one world, tested reconstruction; no multi-host sync/bezel calibration yet |
+| USB | Actual serial I/O tested via pseudoterminal, physical RX untested |
+| BLE | Concrete adapter + BLE firmware build; packet contract tested, physical link untested |
+| WLAN/TCP | Authenticated bridge over actual loopback sockets tested; physical LAN/radio untested |
+
+Compatibility/Low/Balanced/High/Ultra change resolution scale, mesh detail,
+lighting, vegetation, bubbles and caustics. They are **visual profiles, not board
+certification**. Shadows, reflections, texture-quality menus, antialiasing and
+postprocessing are not advertised as implemented. No second renderer is hidden
+behind Compatibility. The smallest Pi must not dictate the installation ceiling,
+but claiming support needs hardware/build evidence.
+
+Python/Panda3D was selected for this runnable iteration: maintained native C++
+render engine, quick protocol iteration, and useful Windows/modern Linux builds.
+C++/raylib remains worth testing if the original-Pi packaging gate fails; no
+unverified claim that this Python stack already supports every Pi.
+
+## Tests and screenshots
+
+```sh
+uv run pytest -q
+uv run python tools/run_render_smoke.py
+uv run python tools/headless_capture.py --demo 16 --preset high \
+  --screenshot .local/aquarium.png --run-seconds 6 --settings .local/settings.json
+```
+
+The last two commands require Linux Xvfb. They launch only a temporary local X
+server (`-nolisten tcp`); no xauth installation or system config change is needed.
+Software-renderer timings are not GPU or Pi FPS evidence.
+
+See [implementation report](docs/IMPLEMENTATION-REPORT.md),
+[protocol](docs/RX-PROTOCOL.md), [asset attribution](assets/ATTRIBUTION.md), and
+[firmware handoff notes](docs/FIRMWARE.md). No radio has been flashed or used over
+the air by this implementation task.

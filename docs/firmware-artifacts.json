@@ -1,0 +1,62 @@
+{
+  "base_commit": "6a7b41a5a706776efbb7aa73dc3e83d35e72e01c",
+  "hardware_tested": false,
+  "artifacts": [
+    {
+      "environment": "Heltec_v3_LoRagotchi_RX_usb",
+      "path": "/root/.openclaw/workspace/projects/LoRagotchi-RX/.pio/build/Heltec_v3_LoRagotchi_RX_usb/firmware.bin",
+      "size": 652592,
+      "sha256": "f6bc124ef48e57230921ef9f3d69b1f1852d8f393f517f4b1de2eda1aef27af9",
+      "app_offset": "0x10000",
+      "partition_size": 3342336,
+      "partition_label": "app0",
+      "checksum_valid": true,
+      "validation_hash_valid": true
+    },
+    {
+      "environment": "Heltec_v3_LoRagotchi_RX_ble",
+      "path": "/root/.openclaw/workspace/projects/LoRagotchi-RX/.pio/build/Heltec_v3_LoRagotchi_RX_ble/firmware.bin",
+      "size": 1276848,
+      "sha256": "28a144c5f51d220b1f6364b562e61826cfe0c14a2ba276f1238611abbd44ebc6",
+      "app_offset": "0x10000",
+      "partition_size": 3342336,
+      "partition_label": "app0",
+      "checksum_valid": true,
+      "validation_hash_valid": true
+    },
+    {
+      "environment": "Heltec_v3_LoRaFish_companion_ble",
+      "path": "/root/.openclaw/workspace/projects/LoRagotchi-RX/.pio/build/Heltec_v3_LoRaFish_companion_ble/firmware.bin",
+      "size": 1317872,
+      "sha256": "a7d213e4c704897d5a207c6b2d5cb7bcbb2093e29714e8dda390093011d08980",
+      "app_offset": "0x10000",
+      "partition_size": 3342336,
+      "partition_label": "app0",
+      "checksum_valid": true,
+      "validation_hash_valid": true
+    },
+    {
+      "environment": "heltec_v4_LoRaFish_companion_ble",
+      "path": "/root/.openclaw/workspace/projects/LoRagotchi-RX/.pio/build/heltec_v4_LoRaFish_companion_ble/firmware.bin",
+      "size": 1317936,
+      "sha256": "e6113605066e20ee9013d18b96ac13ea93785c7260f28aa97529b85468f105f3",
+      "app_offset": "0x10000",
+      "partition_size": 6553600,
+      "partition_label": "app0",
+      "checksum_valid": true,
+      "validation_hash_valid": true
+    },
+    {
+      "environment": "Heltec_t096_LoRaFish_companion_ble",
+      "path": "/root/.openclaw/workspace/projects/LoRagotchi-RX/.pio/build/Heltec_t096_LoRaFish_companion_ble/firmware.uf2",
+      "size": 966656,
+      "sha256": "65337b58b15b8eb4abfad4bfdb14090a539ef4804342fc688baf26b38a1e37b1",
+      "uf2_blocks": 1888,
+      "uf2_family": "0xada52840",
+      "first_address": "0x26000",
+      "end_address_exclusive": "0x9c000",
+      "uf2_valid": true
+    }
+  ],
+  "source_commit": "d1e078fc0a4e5511f4d9982a1628b6fff33d742d"
+}
