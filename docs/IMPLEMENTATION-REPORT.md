@@ -70,7 +70,7 @@ No live connection was attempted during development.
 
 | Check | Result |
 |---|---|
-| Application pytest | **18 passing**: parser, crash/save-before-ACK replay, identity collisions, refresh/colour policy, normal-message separation, actual TCP loopback/HMAC and serial PTY I/O, simulation/settings, firmware golden bytes and PC client against production C++ RX command core |
+| Application pytest | **19 passing**: parser, crash/save-before-ACK replay, identity collisions, refresh/colour policy, normal-message separation, actual TCP loopback/HMAC and serial PTY I/O, simulation/settings, firmware golden bytes and PC client against production C++ RX command core |
 | Native renderer/operator smoke | **Passed**: roster, panel, quality/no culling, scale, resize, selection, removal, session clear; single/two-frustum frozen-world reconstruction mean RGB difference **0.0000021** |
 | Production RX/return core | **12 scenarios passed**: duplicate/short COMMIT, hold/early recall, identity collisions, reset, full queue, failed persistence/ACK, bounded attempts, consumer lease, corrupt-bank fail-closed, stale tombstones |
 | Extracted production DX handlers | **4 checks passed**: full-key identity, real mono/colour return, bounded retries, existing unsolicited return, late ARRIVED/duplicate RETURN, missing owner contact |

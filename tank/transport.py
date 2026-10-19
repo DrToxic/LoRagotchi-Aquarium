@@ -33,7 +33,7 @@ class SerialTransport(StreamTransport):
     def __init__(self, port, baud=115200):
         super().__init__()
         import serial
-        self.serial=serial.Serial(port, baud, timeout=.1, write_timeout=2, exclusive=(os.name=="posix"))
+        self.serial=serial.Serial(port, baud, timeout=.1, write_timeout=2, exclusive=(True if os.name=="posix" else None))
     def read(self): return self.serial.read(max(1,min(self.serial.in_waiting,1024)))
     def write(self,data): self.serial.write(data)
     def close(self): self.serial.close()

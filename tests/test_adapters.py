@@ -63,3 +63,15 @@ def test_serial_pseudoterminal_real_io(tmp_path):
     assert len(store.roster())==2
     client.close();stop.set();t.join(2);os.close(master);os.close(slave);store.close()
     assert not errors and not t.is_alive()
+
+
+def test_windows_serial_does_not_request_unsupported_nonexclusive_mode(monkeypatch):
+    import types,serial
+    import tank.transport as adapters
+    captured={}
+    def fake_serial(*args,**kwargs):captured.update(kwargs);return object()
+    monkeypatch.setattr(adapters,'os',types.SimpleNamespace(name='nt'))
+    monkeypatch.setattr(serial,'Serial',fake_serial)
+    SerialTransport('COM4')
+    # serialwin32 rejects False; None keeps its inherently exclusive behavior.
+    assert captured['exclusive'] is None
