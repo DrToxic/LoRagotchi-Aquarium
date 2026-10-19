@@ -1,5 +1,6 @@
 """Exercise native windows and renderer at 256 fish (Xvfb, not hardware FPS)."""
 import time
+import sys
 from dataclasses import replace
 from pathlib import Path
 from panda3d.core import WindowProperties, PNMImage, GraphicsWindow
@@ -46,6 +47,18 @@ def exercise(self):
     assert primary.names.builds==builds+1
     print(f'PASS {expected} fish: cached names, rename refresh, graphics retain swimming state',flush=True)
 
+    original_size=(self.win.getXSize(),self.win.getYSize())
+    self.fullscreen();settle(self)
+    assert not self.win.getProperties().getFullscreen()
+    # Xvfb has no WM to apply decoration hints. Windows style changes need the
+    # physical Windows check; here verify actual dimensions and no mode switch.
+    if sys.platform=='win32':assert self.win.getProperties().getUndecorated()
+    assert (self.win.getXSize(),self.win.getYSize())==(self.pipe.getDisplayWidth(),self.pipe.getDisplayHeight())
+    self.fullscreen();settle(self)
+    assert (self.win.getXSize(),self.win.getYSize())==original_size
+    assert not self.win.getProperties().getUndecorated()
+    print('PASS borderless fullscreen and exact window-size restore without hardware mode switch',flush=True)
+
     self.taskMgr.remove('aquarium-update')  # frozen reference world for pixel comparison
     self.panel.hide();self.title.hide();self.subtitle.hide();self.footer.hide()
     primary.names.root.hide()
@@ -80,6 +93,11 @@ def exercise(self):
     props=WindowProperties();props.setSize(800,450);self.second_window.requestProperties(props)
     settle(self)
     assert primary.buffer==buffers[0] and self.views[1].internal_size==(400,225)
+    secondary_rect=self.views[1].rectangle()
+    self.fullscreen(self.second_window);settle(self)
+    if sys.platform=='win32':assert self.second_window.getProperties().getUndecorated()
+    self.fullscreen(self.second_window);settle(self)
+    assert self.views[1].rectangle()==secondary_rect
     for i,view in enumerate(self.views):
         view.names.update(True,view.lens,self.camera,self.render,self.models,view.aspect)
         view.names.root.show()

@@ -18,7 +18,7 @@ def main():
     for name in ("detail","plants","bubbles","fps"):parser.add_argument("--"+name,type=int)
     parser.add_argument("--no-lighting",action="store_true");parser.add_argument("--no-caustics",action="store_true")
     parser.add_argument("--no-vsync",action="store_true")
-    parser.add_argument("--fullscreen",action="store_true")
+    parser.add_argument("--fullscreen",action="store_true",help="borderless monitor-sized window; no display-mode switch")
     parser.add_argument("--operator",action="store_true",help="show operator controls at startup")
     parser.add_argument("--wall-columns",type=int,choices=(1,2),default=1,help="one or two separate aquarium windows")
     parser.add_argument("--second-width",type=int,help="second window width (defaults to primary)")

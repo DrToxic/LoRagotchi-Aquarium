@@ -1,3 +1,5 @@
+> Current follow-up: [v0.1.2 testing notes](TESTING-v0.1.2.md) cover wider roaming, solid-body collisions and borderless fullscreen.
+
 > Follow-up: v0.1.1 replaces oval paths and split-screen views, and caches name text.
 > See [current testing notes](TESTING-v0.1.1.md); the original implementation report below is historical.
 

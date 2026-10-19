@@ -1,4 +1,4 @@
-# LoRagotchi-Aquarium · v0.1.1
+# LoRagotchi-Aquarium · v0.1.2
 
 A native **Python + Panda3D** aquarium for shared LoRagotchi fish. Real 3D fish,
 independent cruise/glide swimming, animated tails/turns, original procedural scenery, adjustable graphics, durable
@@ -59,14 +59,14 @@ uv run loragotchi-tank --demo 256 --wall-columns 2 --preset high
 # Replace the example Y=180 with your desktop offset, or just drag the windows.
 uv run loragotchi-tank --demo 256 --wall-columns 2 --preset high --width 2560 --height 1440 --second-width 1920 --second-height 1080 --second-origin 2560 180
 
-# Display-sized fullscreen; output resolution remains distinct from scene scale.
+# Borderless fullscreen; uses monitor bounds, independent of scene scale.
 uv run loragotchi-tank --demo 16 --fullscreen --width 3840 --height 2160 --preset high
 
 # Manual overrides: implemented features only.
 uv run loragotchi-tank --demo --detail 12 --plants 10 --bubbles 4 --fps 30 --no-caustics
 ```
 
-`Tab`: operator controls · `F`: fullscreen · `1…5`: quality presets · `N`: names ·
+`Tab`: operator controls · `F`: borderless fullscreen · `1…5`: quality presets · `N`: names ·
 `V`: open/close second window · click/right arrow: select fish · `Delete`: remove selected copy ·
 `Esc`: close panel, then exit. End display session asks for a second click; this
 hides display copies and never sends a radio RETURN. New shares can reappear.
@@ -81,14 +81,27 @@ changing the combined window bounds reframes the shared scene.
 In the second window, `N` toggles names, `F` toggles its fullscreen mode,
 click/right arrow selects a fish, and `V`, `Esc`, or its close button closes only
 that window. Operator controls stay in the main window. To reopen, press `V` in
-the main window. Native fullscreen placement, mixed-DPI Windows coordinates and
-mixed-refresh-rate frame pacing still need hardware validation; windowed mode
-lets you position both views explicitly. No multi-host sync or bezel calibration.
+the main window. On Windows, fullscreen uses the containing monitor’s bounds without changing its
+display mode; toggling back restores the previous window size and position. This
+also avoids requesting unsupported client sizes such as 1920×1009 as monitor
+modes. The Windows API path, mixed-DPI coordinates and mixed-refresh frame pacing
+still need owner hardware validation. The Linux fallback uses Panda’s display
+bounds; per-monitor Linux/macOS fullscreen placement is not established.
+No multi-host sync or bezel calibration.
 
-Fish choose independent destinations, cruising speeds and occasional slow glides,
-with gradual turns and local avoidance. Graphics changes or re-sharing a fish do
-not reset its swimming state. Names use cached text geometry, updated only when
-the roster/name changes; moving names does not re-layout text each frame.
+Fish choose longer journeys into underused visible-water sectors, with independent
+cruising speeds, gradual turns and slow glides. Destinations adapt to the combined
+window view; resizing does not teleport fish. Graphics changes or re-sharing do
+not reset their swimming state. Names retain the cached text geometry introduced
+in v0.1.1.
+
+Collision detection uses Bullet, already included with Panda3D: stage-sized fish
+body capsules, solid reef rock/coral shapes, and tank/floor boundaries. Predictive
+steering and gentle contact response avoid billiard-ball bouncing. Flexible fins,
+tails and plants are not rigid colliders; fish at different depths can still
+overlap on screen. These are approximate solid shapes, not per-triangle soft-body
+physics. Arrivals are placed with clearance when space is available; no fish are
+removed to satisfy crowd density. Extreme overcapacity can still cause crowding.
 
 Demo supports 0–256 synthetic fish as a bounded test generator; this is **not a
 hard-coded live population cap**. Graphics quality never culls real visitors.
@@ -154,7 +167,7 @@ uv run loragotchi-tank --replay docs/example-replay.jsonl --preset balanced
 | Linux x86_64 | Native rendering and operator callbacks tested under Xvfb/Mesa llvmpipe |
 | Modern Raspberry Pi | Design target; ARM64 engine wheels exist, no physical Pi validation |
 | Original Pi / Zero / 32-bit ARM | **Not established**: packaging, driver and performance gate remains open |
-| Windows | Owner tested initial prototype at 256 fish on i7-11700F / RTX 3060; v0.1.1 multi-window/performance retest pending, no installer |
+| Windows | Owner tested initial prototype at 256 fish on i7-11700F / RTX 3060; v0.1.2 multi-window/performance retest pending, no installer |
 | macOS | Opportunistic; untested |
 | 1080p/4K | Arbitrary output dimensions and independent render scale; 1080p tested, 4K not benchmarked |
 | Video wall | Two real OS windows, unequal-size/offset frusta and shared-world reconstruction tested on Linux Xvfb; Windows/mixed-DPI placement unverified, no multi-host sync/bezel calibration |
@@ -192,7 +205,7 @@ The last two commands require Linux Xvfb. They launch only a temporary local X
 server (`-nolisten tcp`); no xauth installation or system config change is needed.
 Software-renderer timings are not GPU or Pi FPS evidence.
 
-See [v0.1.1 testing notes](docs/TESTING-v0.1.1.md), [implementation report](docs/IMPLEMENTATION-REPORT.md),
+See [v0.1.2 testing notes](docs/TESTING-v0.1.2.md), [implementation report](docs/IMPLEMENTATION-REPORT.md),
 [protocol](docs/RX-PROTOCOL.md), [asset attribution](assets/ATTRIBUTION.md), and
 [firmware handoff notes](docs/FIRMWARE.md). No radio has been flashed or used over
 the air by this implementation task.

@@ -5,6 +5,7 @@ from editable mathematical source; no network or external asset downloader.
 """
 import math
 import random
+from .habitat import FISH_SCALES, reef_rocks, coral_branches
 from panda3d.core import (GeomVertexFormat,GeomVertexData,GeomVertexWriter,GeomTriangles,Geom,GeomNode,
                          NodePath,PNMImage,Texture,TransparencyAttrib,CardMaker,Vec3)
 
@@ -90,7 +91,7 @@ def fish_model(snapshot,detail):
         pupil=ellipsoid("eye",(.07,.035,.085),(.018,.03,.05),max(8,detail//2));pupil.reparentTo(static);pupil.setPos(.67,side*.316,.18)
         glint=ellipsoid("eye-glint",(.023,.013,.025),(1.,1.,.94),8);glint.reparentTo(static);glint.setPos(.69,side*.344,.21);glint.setLightOff()
     static.flattenStrong()
-    size=(.48,.72,1.,1.16)[snapshot.stage];root.setScale(size, size, size*(1.1 if snapshot.stage==3 else 1))
+    size=FISH_SCALES[snapshot.stage];root.setScale(size, size, size*(1.1 if snapshot.stage==3 else 1))
     return root,tail,fins
 
 
@@ -141,12 +142,9 @@ def scenery(parent,settings):
     if settings.caustics:
         caustic=floor_mesh();caustic.reparentTo(parent);caustic.setZ(.025);caustic.setTexture(sand_texture(caustic=True));caustic.setTransparency(TransparencyAttrib.MAlpha);caustic.setLightOff();caustic.setDepthWrite(False)
     # Tiered rock clusters frame a clear centre swimming space.
-    for side in (-1,1):
-        for i in range(10):
-            x=side*(10+rng.random()*7);y=1+rng.random()*5
-            sx=1+rng.random()*2.3;sz=.6+rng.random()*1.8
-            rock=ellipsoid("reef-stone",(sx,sx*.6,sz),(.18+rng.random()*.06,.27,.25),max(8,settings.detail),.18,i)
-            rock.reparentTo(static);rock.setPos(x,y,sz*.6);rock.setH(rng.randrange(360))
+    for pos,scale,heading,colour,seed in reef_rocks(rng):
+        rock=ellipsoid("reef-stone",scale,colour,max(8,settings.detail),.18,seed)
+        rock.reparentTo(static);rock.setPos(*pos);rock.setH(heading)
     plants=[]
     for i in range(settings.plants):
         side=-1 if i%2 else 1;x=side*(10+rng.random()*10);y=-2+rng.random()*10
@@ -155,12 +153,10 @@ def scenery(parent,settings):
         for j in range(3):
             leaf=plant_leaf(1.2+rng.random()*4,.25+rng.random()*.35,rng.uniform(-1,1),col,max(4,settings.detail//2));leaf.reparentTo(node);leaf.setH(j*110)
     # Original branching coral, low in the tank, cool/warm accents.
-    for side in (-1,1):
-        for i in range(7):
-            base=static.attachNewNode("coral");base.setPos(side*(7+i*.6),-1.5+i*.5,.1)
-            coral=(.58,.26,.30) if side<0 else (.40,.31,.57)
-            for j in range(5):
-                stalk=ellipsoid("coral-branch",(.13,.14,.45+j*.10),coral,max(8,settings.detail//2));stalk.reparentTo(base);stalk.setPos((j-2)*.23,0,.5+j*.08);stalk.setR((j-2)*17)
+    for pos,scale,roll in coral_branches():
+        coral=(.58,.26,.30) if pos[0]<0 else (.40,.31,.57)
+        stalk=ellipsoid("coral-branch",scale,coral,max(8,settings.detail//2))
+        stalk.reparentTo(static);stalk.setPos(*pos);stalk.setR(roll)
     # Tiny scattered pebbles are merged by Panda's static scene flattening.
     for i in range(70 if settings.detail>12 else 20):
         rock=ellipsoid("pebble",(.09+rng.random()*.18,.09,.055),(.37,.40,.32),8)

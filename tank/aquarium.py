@@ -11,6 +11,7 @@ from .art import fish_model,scenery,ellipsoid,mesh
 from .settings import Settings,PRESETS
 from .simulation import Simulation
 from .views import AquariumView, desktop_lenses
+from .window_mode import WindowModes
 from .service import Service
 
 class Aquarium(ShowBase):
@@ -24,7 +25,7 @@ class Aquarium(ShowBase):
         if args.no_lighting:self.settings.lighting=False
         if args.no_caustics:self.settings.caustics=False
         if args.no_vsync:self.settings.vsync=False
-        loadPrcFileData("tank",f"window-title LoRagotchi Community Tank\nwin-size {args.width} {args.height}\nfullscreen {str(args.fullscreen).lower()}\nsync-video {str(self.settings.vsync).lower()}\naudio-library-name null\nframebuffer-multisample 0\ntextures-power-2 none\nnotify-level warning\n")
+        loadPrcFileData("tank",f"window-title LoRagotchi Community Tank\nwin-size {args.width} {args.height}\nfullscreen false\nsync-video {str(self.settings.vsync).lower()}\naudio-library-name null\nframebuffer-multisample 0\ntextures-power-2 none\nnotify-level warning\n")
         font=Path(__file__).resolve().parent/"assets"/"LiberationSans-Regular.ttf"
         loadPrcFileData("font",f"text-default-font {font.as_posix()}\n")
         super().__init__();self.disableMouse();self.setBackgroundColor(.012,.075,.115,1)
@@ -39,6 +40,7 @@ class Aquarium(ShowBase):
         self.cam.node().setActive(False)
         self.views=[];self.second_window=None;self.second_input=None;self._configuring_output=False
         self._layout=None;self._ui_text={};self._next_ui_update=0.
+        self.window_modes=WindowModes(self.pipe)
         self.buffer=None;self.screen=None;self.view_cameras=[]
         self.rebuild_scene()
         self.title=OnscreenText(text="COMMUNITY REEF",pos=(-1.68,.91),scale=.038,fg=(.72,.88,.87,.85),align=TextNode.ALeft,mayChange=True)
@@ -52,12 +54,13 @@ class Aquarium(ShowBase):
         for i,name in enumerate(PRESETS,1):self.accept(str(i),self.set_preset,[name])
         self.accept("window-event",self.on_window)
         if args.wall_columns==2:self.open_second_window()
+        if args.fullscreen:self.fullscreen()
         self.service=Service(args)
         self.taskMgr.add(self.update,"aquarium-update")
         gsg=self.win.getGsg()
         print(f"Renderer: {gsg.getDriverVendor()} / {gsg.getDriverRenderer()} / {gsg.getDriverVersion()}",flush=True)
         print(f"Output {self.win.getXSize()}x{self.win.getYSize()}, internal {self.internal_size}, {args.wall_columns} shared-world viewport(s)",flush=True)
-        print("Controls: Tab operator panel; F fullscreen; 1..5 quality; N names; V second window; click/right-arrow select; Delete remove copy; Esc close",flush=True)
+        print("Controls: Tab operator panel; F borderless fullscreen; 1..5 quality; N names; V second window; click/right-arrow select; Delete remove copy; Esc close",flush=True)
 
     def rebuild_scene(self):
         if hasattr(self,"decor"):self.decor.removeNode()
@@ -94,6 +97,17 @@ class Aquarium(ShowBase):
                 layout=tuple(rectangles)
                 if layout!=self._layout:
                     for view,lens in zip(self.views,desktop_lenses(rectangles)):view.set_lens(lens)
+                    left=min(x for x,y,w,h in rectangles);top=min(y for x,y,w,h in rectangles)
+                    width=max(x+w for x,y,w,h in rectangles)-left
+                    height=max(y+h for x,y,w,h in rectangles)-top
+                    full=desktop_lenses([(left,top,width,height)])[0]
+                    regions=tuple((2*(x-left)/width-1,2*(x+w-left)/width-1,
+                                   1-2*(y+h-top)/height,1-2*(y-top)/height) for x,y,w,h in rectangles)
+                    rotation=self.camera.getQuat(self.render)
+                    self.sim.set_view(tuple(self.camera.getPos(self.render)),tuple(rotation.getRight()),
+                                      tuple(rotation.getForward()),tuple(rotation.getUp()),
+                                      math.tan(math.radians(full.getHfov()/2)),
+                                      math.tan(math.radians(full.getVfov()/2)),regions)
                     self._layout=layout
             # Kept for diagnostics and the primary-window controls.
             first=self.views[0]
@@ -140,6 +154,7 @@ class Aquarium(ShowBase):
         if not self.second_window:return
         window=self.second_window
         self.second_window=None
+        self.window_modes.discard(window)
         view=self.views.pop()
         view.destroy()
         for event in ('v','n','f','escape','arrow_right','mouse1'):self.ignore('second-'+event)
@@ -202,7 +217,10 @@ class Aquarium(ShowBase):
         else:self.userExit()
     def fullscreen(self,window=None):
         window=window or self.win
-        prop=WindowProperties();prop.setFullscreen(not window.getProperties().getFullscreen());window.requestProperties(prop)
+        try:self.window_modes.toggle(window)
+        except (OSError,ValueError) as error:
+            self.status=f"Fullscreen unavailable: {error}"
+            print(self.status,flush=True)
     def toggle_names(self):self.show_names=not self.show_names
     def toggle_wall(self):
         if self.second_window:self.close_second_window()
