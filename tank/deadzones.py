@@ -21,10 +21,14 @@ class Deadzone:
     width: float = 30.
     height: float = 30.
     enabled: bool = True
+    blackout: bool = False
+    inverted: bool = False
 
     def __post_init__(self):
-        if self.shape not in SHAPES or type(self.enabled) is not bool:
+        if self.shape not in SHAPES:
             raise ValueError('Choose a supported shape.')
+        if any(type(v) is not bool for v in (self.enabled,self.blackout,self.inverted)):
+            raise ValueError('Use on/off values for zone switches.')
         if not all(math.isfinite(v) for v in (self.x, self.y, self.width, self.height)):
             raise ValueError('Coordinates must be finite numbers.')
         if not (0 <= self.x < 100 and 0 <= self.y < 100 and
@@ -53,6 +57,23 @@ class Deadzone:
             return (dx/hx)**2+(dy/hy)**2 <= 1.
         radius = min(hx, hy)*.5
         return max(dx-(hx-radius), 0.)**2+max(dy-(hy-radius), 0.)**2 <= radius**2
+
+    def contains(self, box, aspect=1.):
+        """Whole-box containment in a convex shape, including curved corners."""
+        left,right,bottom,top=self.bounds()
+        x0,x1,y0,y1=box
+        if x0<left or x1>right or y0<bottom or y1>top:return False
+        if self.shape=='Rectangle':return True
+        cx,cy=(left+right)*aspect/2,(bottom+top)/2
+        hx,hy=(right-left)*aspect/2,(top-bottom)/2
+        dx=max(abs(x0*aspect-cx),abs(x1*aspect-cx))
+        dy=max(abs(y0-cy),abs(y1-cy))
+        if self.shape=='Ellipse':return (dx/hx)**2+(dy/hy)**2<=1.
+        radius=min(hx,hy)*.5
+        return max(dx-(hx-radius),0.)**2+max(dy-(hy-radius),0.)**2<=radius**2
+
+    def blocks(self, box, aspect=1.):
+        return self.enabled and (not self.contains(box,aspect) if self.inverted else self.intersects(box,aspect))
 
     def outline(self, aspect=1., steps=48):
         left, right, bottom, top = self.bounds()

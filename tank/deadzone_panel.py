@@ -34,10 +34,11 @@ class DeadzonePanel:
         c.button(parent,'Apply',18,487,120,self.apply)
         self.enabled_button=c.button(parent,'Enabled: on',150,487,126,self.toggle_enabled)
         self.delete_button=c.button(parent,'Delete',288,487,126,self.delete)
-        self.outlines_button=c.button(parent,'Outlines: off',18,530,126,self.toggle_outlines)
-        c.label(parent,'Click preview to place the zone; then Apply.',154,528,11,252)
-        self.note=c.label(parent,'Teal = windows. Dark = gaps. Coral = deadzones.\nPercentages cover the whole layout; zones save on Apply.',18,559,12,396)
-        self.draft_enabled=True
+        self.blackout_button=c.button(parent,'Blackout: off',18,530,126,lambda:self.toggle_flag('blackout'))
+        self.invert_button=c.button(parent,'Invert: off',153,530,126,lambda:self.toggle_flag('inverted'))
+        self.outlines_button=c.button(parent,'Outlines: off',288,530,126,self.toggle_outlines)
+        self.note=c.label(parent,'Click preview to place; Apply saves. Percentages span layout.\nInvert keeps fish inside; Blackout hides the excluded area.',18,559,12,396)
+        self.draft_enabled=True;self.draft_blackout=False;self.draft_inverted=False
         self.refresh_windows();self.show_selected()
 
     def choose_window(self,label):
@@ -87,13 +88,15 @@ class DeadzonePanel:
         self.zone_label['text']=f'Deadzone {self.selected+1} / {len(zones)}' if self.selected is not None else f'New deadzone ({len(zones)}/{MAX_ZONES})'
         self.shape.set(zone.shape,fCommand=0)
         for field,value in zip(self.fields,(zone.x,zone.y,zone.width,zone.height)):field.enterText(f'{value:g}')
-        self.draft_enabled=zone.enabled
+        self.draft_enabled=zone.enabled;self.draft_blackout=zone.blackout;self.draft_inverted=zone.inverted
+        self.blackout_button['text']='Blackout: '+('on' if zone.blackout else 'off')
+        self.invert_button['text']='Invert: '+('on' if zone.inverted else 'off')
         self.enabled_button['text']='Enabled: '+('on' if zone.enabled else 'off')
         self.controls.enabled(self.delete_button,self.selected is not None)
         self.redraw()
     def apply(self):
         try:
-            zone=Deadzone(self.shape.get(),*(float(f.get()) for f in self.fields),enabled=self.draft_enabled)
+            zone=Deadzone(self.shape.get(),*(float(f.get()) for f in self.fields),enabled=self.draft_enabled,blackout=self.draft_blackout,inverted=self.draft_inverted)
             if self.selected is None:
                 if len(self.app.display.zones)>=MAX_ZONES:raise ValueError(f'Maximum {MAX_ZONES} zones. Edit or delete one first.')
                 self.app.display.zones.append(zone);self.selected=len(self.app.display.zones)-1
@@ -109,6 +112,17 @@ class DeadzonePanel:
         if self.selected is not None:
             self.app.display.zones[self.selected]=replace(self.app.display.zones[self.selected],enabled=self.draft_enabled)
             self.persist()
+    def toggle_flag(self,flag):
+        value=not getattr(self,'draft_'+flag)
+        setattr(self,'draft_'+flag,value)
+        button=self.blackout_button if flag=='blackout' else self.invert_button
+        button['text']=('Blackout: ' if flag=='blackout' else 'Invert: ')+('on' if value else 'off')
+        self.note['text']=('Blackout paints the excluded area black, including scenery.\nClose controls with Tab for clean projector output.' if flag=='blackout' else
+                           'Invert keeps fish inside this shape; outside is excluded.\nMultiple inverted shapes keep only their shared interior.')
+        if self.selected is not None:
+            self.app.display.zones[self.selected]=replace(self.app.display.zones[self.selected],**{flag:value})
+            self.persist()
+
     def delete(self):
         if self.selected is not None:
             self.app.display.zones.pop(self.selected);self.selected=None;self.persist();self.show_selected()
@@ -154,9 +168,22 @@ class DeadzonePanel:
             node=self.preview_nodes.attachNewNode(maker.generate());node.setColor(.07,.22,.25,1)
             self.lines(self.preview_nodes,[(x0,y0),(x1,y0),(x1,y1),(x0,y1),(x0,y0)],
                        (.35,.85,.82,1) if view.view_id==self.selected_view else (.20,.46,.48,1))
+        from .projection import blackout_geometry
+        geometry=blackout_geometry(self.app.display.zones,width/height,max(pw,ph))
+        if geometry is not None:
+            mask=self.preview_nodes.attachNewNode(geometry)
+            mask.setScale(pw/2,1,ph/2);mask.setPos(px+pw/2,0,-py-ph/2)
+            mask.setColor(0,0,0,1);mask.setTwoSided(True)
+            # Inverted outer quads extend beyond the preview. Clip them to its
+            # layout rectangle so they cannot cover neighbouring controls.
+            from panda3d.core import Plane, PlaneNode, Vec3
+            for normal,point in (((1,0,0),(-1,0,0)),((-1,0,0),(1,0,0)),
+                                 ((0,0,1),(0,0,-1)),((0,0,-1),(0,0,1))):
+                plane=mask.attachNewNode(PlaneNode('preview-clip',Plane(Vec3(*normal),Point3(*point))))
+                mask.setClipPlane(plane)
         for i,zone in enumerate(self.app.display.zones):
             points=zone.outline(width/height)
-            color=(1.,.55,.38,1) if zone.enabled else (.43,.44,.45,1)
+            color=((.40,.9,.68,1) if zone.inverted else (1.,.55,.38,1)) if zone.enabled else (.43,.44,.45,1)
             self.lines(self.preview_nodes,[(px+(u+1)*pw/2,-py-(1-v)*ph/2) for u,v in points],color,3 if i==self.selected else 1.5)
             if self.outlines and zone.enabled:
                 for view,(x,y,w,h) in zip(self.app.views,rectangles):

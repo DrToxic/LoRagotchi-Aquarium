@@ -44,7 +44,7 @@ class SwimVolume:
 
     def allows_box(self, box):
         return ((not self.constrain or covered(box,self.regions)) and
-                not any(zone.intersects(box,self.aspect) for zone in self.zones))
+                not any(zone.blocks(box,self.aspect) for zone in self.zones))
 
     def allows(self, point, radius):
         if not self.constrain and not self.zones:return True

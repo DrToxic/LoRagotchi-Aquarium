@@ -14,6 +14,7 @@ from .window_mode import WindowModes
 from .service import Service
 from .options import OptionsPanel
 from .deadzones import DisplayProfile, MAX_WINDOWS
+from .projection import blackout_geometry
 
 class Aquarium(ShowBase):
     def __init__(self,args):
@@ -120,6 +121,10 @@ class Aquarium(ShowBase):
                                       tuple(rotation.getForward()),tuple(rotation.getUp()),
                                       math.tan(math.radians(full.getHfov()/2)),
                                       math.tan(math.radians(full.getVfov()/2)),regions,self.display.zones,self.display.constrain)
+                    masks=blackout_geometry(self.display.zones,width/height,max(width,height))
+                    for view,(x,y,w,h) in zip(self.views,rectangles):
+                        view.set_blackout(masks,(2*(x-left)/width-1,2*(x+w-left)/width-1,
+                                                 1-2*(y+h-top)/height,1-2*(y-top)/height))
                     self._layout=layout
                     if hasattr(self,"controls"):self.controls.deadzones.redraw()
             # Kept for diagnostics and the primary-window controls.
@@ -172,7 +177,14 @@ class Aquarium(ShowBase):
         self.views.remove(view);self.window_modes.discard(view.window)
         for event in ('v','n','f','escape','arrow_right','tab','mouse1'):self.ignore(f'view-{view.view_id}-'+event)
         if view.input:view.input.getParent().getParent().removeNode()
-        view.destroy();self.closeWindow(view.window);self._sync_secondary()
+        if view.window.getProperties().getOpen():
+            # GLX FBO names are context-local. Retire this output immediately
+            # after drawing its own native context, not whichever sibling was
+            # most recently captured/rendered.
+            view.window.setSort(max(w.getSort() for w in self.winList)+1)
+            self.graphicsEngine.renderFrame()
+        view.destroy()
+        self.closeWindow(view.window);self._sync_secondary()
         if not self._destroying:
             self.setup_output()
             if hasattr(self,'controls'):self.controls.deadzones.refresh_windows()

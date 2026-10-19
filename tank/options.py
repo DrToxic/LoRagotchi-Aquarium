@@ -23,6 +23,10 @@ class OptionsPanel:
             except ValueError: pass
         self.root = DirectFrame(parent=app.pixel2d, frameSize=(0,self.WIDTH,-self.HEIGHT,0),
                                 frameColor=(.018,.065,.085,.97))
+        # Keep editing reachable even if a projector mask blacks the main view.
+        from .projection import configure_overlay_bins
+        configure_overlay_bins()
+        self.root.setBin('projector-controls',0,100)
         self.label(self.root,'TANK CONTROLS',18,29,17)
         self.button(self.root,'×',389,25,25,app.toggle_panel)
         self.tabs = {
@@ -57,11 +61,13 @@ class OptionsPanel:
 
     def menu(self,parent,items,x,y,width,command,initial=0):
         # Menu coordinates are font units, matching the popup's own text layout.
-        return DirectOptionMenu(parent=parent,items=items,initialitem=initial,scale=14,
+        menu=DirectOptionMenu(parent=parent,items=items,initialitem=initial,scale=14,
                                 text_align=TextNode.ALeft,text_fg=(.90,.96,.94,1),
                                 frameColor=(.09,.19,.22,1),highlightColor=(.15,.36,.39,1),
                                 frameSize=(-.3,width/14,-.55,1.1),pos=(x,0,-y),
                                 popupMarker_pos=(width/14-.8,0,0),command=command)
+        menu.popupMenu.setBin('gui-popup',0,101)
+        return menu
 
     def entry(self,parent,text,x,y,width):
         field = DirectEntry(parent=parent,initialText=text,scale=14,width=width/14,

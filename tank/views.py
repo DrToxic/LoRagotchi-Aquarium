@@ -99,6 +99,7 @@ class AquariumView:
         self.primary = primary
         self.view_id = 0
         self.input = None
+        self.blackout = None
         self.buffer = self.camera = self.screen = self.overlay_camera = None
         self.internal_size = None
         self.output_size = None
@@ -150,6 +151,11 @@ class AquariumView:
         if self.camera:
             self.camera.node().setLens(lens)
 
+    def set_blackout(self,geometry,rectangle):
+        from .projection import attach_blackout
+        if self.blackout:self.blackout.removeNode()
+        self.blackout=attach_blackout(self.root,geometry,rectangle)
+
     def rectangle(self):
         props = self.window.getProperties()
         return (props.getXOrigin(), props.getYOrigin(), self.window.getXSize(), self.window.getYSize())
@@ -162,10 +168,14 @@ class AquariumView:
                 self.app.camList.remove(self.camera)
             self.camera.removeNode()
         if self.buffer:
+            self.buffer.setActive(False)
+            self.buffer.removeAllDisplayRegions()
             self.app.graphicsEngine.removeWindow(self.buffer)
         self.screen = self.camera = self.buffer = None
 
     def destroy(self):
+        if self.blackout:self.blackout.removeNode()
+        self.blackout=None
         self._remove_target()
         self.names.destroy()
         self.aspect_root.removeNode()

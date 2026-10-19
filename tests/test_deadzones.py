@@ -115,3 +115,43 @@ def test_startup_with_all_water_blocked_parks_arrivals_and_unparks_on_edit():
     configure(sim,[(-1,1,-1,1)])
     sim.step(.1)
     assert all(not s.parked and sim.volume.allows((s.x,s.y,s.z),s.outline) for s in sim.swimmers.values())
+
+
+@pytest.mark.parametrize('shape',['Rectangle','Rounded rectangle','Ellipse'])
+def test_inversion_keeps_entire_footprint_inside_not_just_its_centre(shape):
+    zone=Deadzone(shape,20,20,60,60,inverted=True)
+    assert not zone.blocks((-.1,.1,-.1,.1),16/9)
+    assert zone.blocks((-.8,-.7,0,.1),16/9)
+    assert zone.blocks((-.1,.7,-.1,.1),16/9)
+    assert zone.blocks((.58,.6,.58,.6),16/9)==(shape!='Rectangle')
+    assert not replace(zone,enabled=False).blocks((-1,1,-1,1),16/9)
+    assert replace(zone,blackout=True).blocks((-.1,.7,-.1,.1),16/9)
+
+
+def test_old_saved_zones_default_to_no_blackout_or_inversion(tmp_path):
+    path=tmp_path/'display.json'
+    path.write_text('{"version":1,"zones":[{"shape":"Ellipse","x":10,"y":20,"width":60,"height":50,"enabled":true}]}')
+    profile=DisplayProfile.load(path)
+    assert len(profile.zones)==1
+    assert not profile.zones[0].blackout and not profile.zones[0].inverted
+    profile.zones[0]=replace(profile.zones[0],blackout=True,inverted=True)
+    profile.save(path);assert DisplayProfile.load(path)==profile
+    with pytest.raises(ValueError):Deadzone(blackout='true')
+    with pytest.raises(ValueError):Deadzone(inverted=1)
+
+
+def test_inverted_ellipse_with_additional_exclusion_retains_whole_fish_and_recovers():
+    sim=Simulation(reefs=False)
+    zones=[Deadzone('Ellipse',12,6,76,88,inverted=True,blackout=True),
+           Deadzone('Rectangle',40,42,15,15,blackout=True)]
+    configure(sim,[(-1,1,-1,1)],zones);sim.roster(visitors(32))
+    for _ in range(130):
+        sim.step(.1)
+        assert all(not s.parked and sim.volume.allows((s.x,s.y,s.z),s.outline) for s in sim.swimmers.values())
+    ids=set(sim.swimmers)
+    configure(sim,[(-1,1,-1,1)],[Deadzone('Ellipse',0,0,20,20,inverted=True),Deadzone('Ellipse',80,80,20,20,inverted=True)])
+    sim.step(.1)
+    assert all(s.parked for s in sim.swimmers.values())
+    configure(sim,[(-1,1,-1,1)],zones)
+    sim.step(.1)
+    assert set(sim.swimmers)==ids and all(not s.parked for s in sim.swimmers.values())

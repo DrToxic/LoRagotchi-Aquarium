@@ -120,7 +120,36 @@ fish depths. **Edges: off** restores unrestricted gap-crossing; zones still appl
   then Apply. Percentages follow layout resizing; check them after rearranging
   monitors. They are not percentages of the selected window.
 - **Outlines:** toggles visible coral-coloured borders across the aquarium views;
-  preview outlines are always available. Scenery remains visible inside zones.
+  preview outlines are always available. Scenery remains visible unless that zone has **Blackout: on**.
+
+#### Projectors and round displays (v0.1.5)
+
+Each deadzone has independent switches in **Tab → Deadzones**:
+
+| Settings | Fish restriction | Projector output |
+|---|---|---|
+| Invert off, Blackout off | Avoid inside | Scenery still visible |
+| Invert off, Blackout on | Avoid inside | Inside painted black |
+| Invert on, Blackout off | Stay inside | Scenery still visible outside |
+| Invert on, Blackout on | Stay inside | Everything outside painted black |
+
+Blackout masks scenery, fish, names and HUD text at output resolution, independent
+of render scale. Disabled zones do neither. Switches save immediately on an
+existing zone; new zones remain drafts until **Apply**. Old layouts default to
+both switches off. Multiple zones combine their excluded areas; multiple inverted
+zones therefore retain only their **shared interior**, not a union of circles.
+
+For a round display, choose **Ellipse**, set **Invert: on** and **Blackout: on**,
+then Apply. On a single 16:9 output, `Left 21.875 / Top 0 / Width 56.25 / Height 100`
+produces a centred physical circle; on a square output use `0 / 0 / 100 / 100`.
+These percentages describe the entire combined window layout, not the selected
+view. Use other dimensions for oval surfaces or a smaller circular projection.
+
+Controls remain visible above the mask while open so a full blackout cannot lock
+you out. Close them with **Tab** for clean projection, and turn **Outlines off**.
+Use **F** for borderless output (OS title bars/desktop outside the client aren't
+part of the aquarium mask). Blackout emits RGB zero; physical projector black
+levels depend on the projector. No edge blending/keystone correction is included.
 
 The preview shows window rectangles in teal, gaps in dark, and exclusions in
 coral. Geometry is stored beside settings in `display-layout.json`, separate from
@@ -237,7 +266,7 @@ connection-lifecycle checks. Physical USB/BLE/RX interoperability remains unveri
 | Linux x86_64 | Native rendering and operator callbacks tested under Xvfb/Mesa llvmpipe |
 | Modern Raspberry Pi | Design target; ARM64 engine wheels exist, no physical Pi validation |
 | Original Pi / Zero / 32-bit ARM | **Not established**: packaging, driver and performance gate remains open |
-| Windows | Owner tested initial prototype at 256 fish on i7-11700F / RTX 3060; v0.1.2 functionally accepted; v0.1.4 multi-window/deadzone retest pending, physical RX link unverified, no installer |
+| Windows | Owner tested initial prototype at 256 fish on i7-11700F / RTX 3060; v0.1.2 functionally accepted; v0.1.5 projector/multi-window hardware retest pending, physical RX link unverified, no installer |
 | macOS | Opportunistic; untested |
 | 1080p/4K | Arbitrary output dimensions and independent render scale; 1080p tested, 4K not benchmarked |
 | Video wall | Up to eight native OS windows; three-window offset animation, lifecycle, saved-layout restore and two-window reconstruction tested on Linux Xvfb; Windows/mixed-DPI placement unverified, no multi-host sync/bezel calibration |
@@ -263,6 +292,7 @@ unverified claim that this Python stack already supports every Pi.
 uv run pytest -q
 uv run python tools/run_render_smoke.py
 uv run python tools/deadzones_smoke.py
+uv run python tools/projection_smoke.py
 uv run python tools/headless_capture.py --demo 16 --preset high \
   --screenshot .local/aquarium.png --run-seconds 6 --settings .local/settings.json
 ```
@@ -276,7 +306,7 @@ The rendering commands require Linux Xvfb. They launch only a temporary local X
 server (`-nolisten tcp`); no xauth installation or system config change is needed.
 Software-renderer timings are not GPU or Pi FPS evidence.
 
-See [v0.1.4 testing notes](docs/TESTING-v0.1.4.md), [v0.1.3 radio testing notes](docs/TESTING-v0.1.3.md), [v0.1.2 testing notes](docs/TESTING-v0.1.2.md), [implementation report](docs/IMPLEMENTATION-REPORT.md),
+See [v0.1.5 projector testing notes](docs/TESTING-v0.1.5.md), [v0.1.4 testing notes](docs/TESTING-v0.1.4.md), [v0.1.3 radio testing notes](docs/TESTING-v0.1.3.md), [v0.1.2 testing notes](docs/TESTING-v0.1.2.md), [implementation report](docs/IMPLEMENTATION-REPORT.md),
 [protocol](docs/RX-PROTOCOL.md), [asset attribution](assets/ATTRIBUTION.md), and
 [firmware handoff notes](docs/FIRMWARE.md). No radio has been flashed or used over
 the air by this implementation task.
