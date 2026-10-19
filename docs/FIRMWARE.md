@@ -1,10 +1,13 @@
-# Local firmware handoff
+# Firmware handoff (separate project)
 
-Worktree: `/root/.openclaw/workspace/projects/LoRagotchi-RX`
+The RX/DX firmware is maintained separately; it is not included in this
+repository. The build evidence below describes the local prototype, not a
+published firmware download. Checkout name: `LoRagotchi-RX`.
 
 Branch: `feature/community-tank-rx`, accepted base `6a7b41a`.
-Production source commit: `d1e078f` (full hash in `firmware-artifacts.json`).
-Original `/root/.openclaw/workspace/projects/LoRagotchi-DX` remains on its accepted
+Reviewed RX source commit: `af5309a`; unchanged normal-DX images use `d1e078f`
+(full hashes per image in `firmware-artifacts.json`).
+The original `LoRagotchi-DX` checkout remains on its accepted
 branch/revision with no checked-out source changes.
 
 See the firmware's `COMMUNITY-RX.md` for build commands, behavior and hardware
@@ -16,14 +19,14 @@ performed by this implementation task.
 
 | Environment | Product | Artifact | Bytes | Format validation |
 |---|---|---|---:|---|
-| Heltec_v3_LoRagotchi_RX_usb | Heltec V3 RX / USB | firmware.bin | 652592 | ESP32 checksum/hash, app partition at 0x10000 |
-| Heltec_v3_LoRagotchi_RX_ble | Heltec V3 RX / BLE | firmware.bin | 1276848 | ESP32 checksum/hash, app partition at 0x10000 |
+| Heltec_v3_LoRagotchi_RX_usb | Heltec V3 RX / USB | firmware.bin | 652512 | ESP32 checksum/hash, app partition at 0x10000 |
+| Heltec_v3_LoRagotchi_RX_ble | Heltec V3 RX / BLE | firmware.bin | 1276784 | ESP32 checksum/hash, app partition at 0x10000 |
 | Heltec_v3_LoRaFish_companion_ble | Normal V3 DX + host return | firmware.bin | 1317872 | ESP32 checksum/hash, app partition at 0x10000 |
 | heltec_v4_LoRaFish_companion_ble | Normal V4 DX + host return | firmware.bin | 1317936 | ESP32 checksum/hash, app partition at 0x10000 |
 | Heltec_t096_LoRaFish_companion_ble | Normal T096 DX + host return | firmware.uf2 | 966656 | family 0xada52840, 1888 blocks, 0x26000..0x9c000 exclusive |
 
 Each is under `LoRagotchi-RX/.pio/build/<environment>/`. Full SHA-256 hashes and
-absolute artifact paths: [firmware-artifacts.json](firmware-artifacts.json).
+paths relative to the separate RX checkout: [firmware-artifacts.json](firmware-artifacts.json).
 ESP32 application binaries are **not merged installers** and are not offset-zero
 images. No data-preservation or hardware-acceptance claim is made. Keep the
 accepted `6a7b41a` firmware as the known-good rollback reference when a separately

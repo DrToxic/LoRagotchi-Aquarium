@@ -1,7 +1,9 @@
 # v0.1 implementation report
 
-Date: 2026-10-19. Local first coding iteration; **no physical-radio, Pi, Windows
-or hardware GPU acceptance**. No pushes, flashing, deployment or public listener.
+Date: 2026-10-19. Development/verification record from the local first iteration; **no physical-radio, Pi, Windows
+or hardware GPU acceptance**. No firmware publication, flashing, deployment or public listener. The aquarium
+application is now prepared for publication in
+[DrToxic/LoRagotchi-Aquarium](https://github.com/DrToxic/LoRagotchi-Aquarium).
 
 ## Result
 
@@ -12,20 +14,21 @@ The goal of accommodating that hardware family remains an explicit next gate.
 
 Paths:
 
-- Application: `/root/.openclaw/workspace/projects/loragotchi-community-tank`
-- Firmware: `/root/.openclaw/workspace/projects/LoRagotchi-RX`, branch
+- Application: this repository (`LoRagotchi-Aquarium`)
+- Firmware: separate `LoRagotchi-RX` checkout, branch
   `feature/community-tank-rx`, reviewed head **af5309a**, base **6a7b41a**.
   Parent review added CPU-width-independent RX numeric validation after the
   initial **d1e078f** prototype. RX USB/BLE images were rebuilt; unchanged normal
   DX images remain from d1e078f, with exact source recorded per artifact.
-- Original DX checkout untouched. New app is its own local Git project; its exact
-  source revision is available with `git rev-parse HEAD` after the initial commit.
-- No remote has been created for the app; no branch was pushed.
+- Original DX checkout untouched. The app is a separate Git project; its exact
+  source revision is available with `git rev-parse HEAD`.
+- Aquarium publication preserves the owner-created README links and MIT licence;
+  firmware remains separate and unpublished by this task.
 
 ## Run
 
 ```sh
-cd /root/.openclaw/workspace/projects/loragotchi-community-tank
+cd LoRagotchi-Aquarium
 uv sync --extra test
 uv run loragotchi-tank --demo 16 --preset high
 # headless visual check on this host
@@ -136,4 +139,4 @@ prototype review, not an exhaustive audit or physical hardware acceptance.
 An RX transport ACK does not prove the owner has displayed/saved HOME. No such
 legacy receipt exists, and none was invented. Physical acceptance should first
 exercise unplugged-PC visits and repeated/power-interrupted returns between
-accepted DX and RX before any publication or deployment decision.
+accepted DX and RX before a firmware release or deployment decision.

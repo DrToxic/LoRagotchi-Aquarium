@@ -4,7 +4,7 @@
   "artifacts": [
     {
       "environment": "Heltec_v3_LoRagotchi_RX_usb",
-      "path": "/root/.openclaw/workspace/projects/LoRagotchi-RX/.pio/build/Heltec_v3_LoRagotchi_RX_usb/firmware.bin",
+      "path": ".pio/build/Heltec_v3_LoRagotchi_RX_usb/firmware.bin",
       "size": 652512,
       "sha256": "b743f88e925387ce2d2fc3433b074e296c4b737535afaf48c4af608f1ca43170",
       "app_offset": "0x10000",
@@ -16,7 +16,7 @@
     },
     {
       "environment": "Heltec_v3_LoRagotchi_RX_ble",
-      "path": "/root/.openclaw/workspace/projects/LoRagotchi-RX/.pio/build/Heltec_v3_LoRagotchi_RX_ble/firmware.bin",
+      "path": ".pio/build/Heltec_v3_LoRagotchi_RX_ble/firmware.bin",
       "size": 1276784,
       "sha256": "c97f5cc88465e257fc4d33e74d839addb1776cd3a0c028d21336894b43da583d",
       "app_offset": "0x10000",
@@ -28,7 +28,7 @@
     },
     {
       "environment": "Heltec_v3_LoRaFish_companion_ble",
-      "path": "/root/.openclaw/workspace/projects/LoRagotchi-RX/.pio/build/Heltec_v3_LoRaFish_companion_ble/firmware.bin",
+      "path": ".pio/build/Heltec_v3_LoRaFish_companion_ble/firmware.bin",
       "size": 1317872,
       "sha256": "a7d213e4c704897d5a207c6b2d5cb7bcbb2093e29714e8dda390093011d08980",
       "app_offset": "0x10000",
@@ -40,7 +40,7 @@
     },
     {
       "environment": "heltec_v4_LoRaFish_companion_ble",
-      "path": "/root/.openclaw/workspace/projects/LoRagotchi-RX/.pio/build/heltec_v4_LoRaFish_companion_ble/firmware.bin",
+      "path": ".pio/build/heltec_v4_LoRaFish_companion_ble/firmware.bin",
       "size": 1317936,
       "sha256": "e6113605066e20ee9013d18b96ac13ea93785c7260f28aa97529b85468f105f3",
       "app_offset": "0x10000",
@@ -52,7 +52,7 @@
     },
     {
       "environment": "Heltec_t096_LoRaFish_companion_ble",
-      "path": "/root/.openclaw/workspace/projects/LoRagotchi-RX/.pio/build/Heltec_t096_LoRaFish_companion_ble/firmware.uf2",
+      "path": ".pio/build/Heltec_t096_LoRaFish_companion_ble/firmware.uf2",
       "size": 966656,
       "sha256": "65337b58b15b8eb4abfad4bfdb14090a539ef4804342fc688baf26b38a1e37b1",
       "uf2_blocks": 1888,
@@ -64,5 +64,6 @@
     }
   ],
   "source_commit": "af5309a18c519ef2cd1b29d71c63866b1ac0f8e5",
-  "review_note": "Parent af5309a changes only RX unsigned parsing and its host tests. Both RX binaries rebuilt and image-validated. Normal DX binaries are unchanged accepted prototype builds at d1e078f, recorded per artifact."
+  "review_note": "Parent af5309a changes only RX unsigned parsing and its host tests. Both RX binaries rebuilt and image-validated. Normal DX binaries are unchanged accepted prototype builds at d1e078f, recorded per artifact.",
+  "artifact_root": "Separate LoRagotchi-RX checkout; firmware files are not included in this repository."
 }

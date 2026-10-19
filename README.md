@@ -1,4 +1,4 @@
-# LoRagotchi Community Tank · v0.1
+# LoRagotchi-Aquarium · v0.1
 
 A native **Python + Panda3D** aquarium for shared LoRagotchi fish. Real 3D fish,
 animated tails/turns, original procedural scenery, adjustable graphics, durable
@@ -12,16 +12,40 @@ sharing again refreshes their appearance.
 
 ## Quick start — no radio required
 
-With [uv](https://docs.astral.sh/uv/) installed:
+Clone the repository (or download and extract its ZIP), then open a terminal in
+that directory. Python **3.10 or newer** is required; Python 3.12 is the tested
+version. With [uv](https://docs.astral.sh/uv/) installed:
+
+```sh
+git clone https://github.com/DrToxic/LoRagotchi-Aquarium.git
+cd LoRagotchi-Aquarium
+```
 
 ```sh
 uv sync --extra test
 uv run loragotchi-tank --demo 16 --preset high
 ```
 
-Or use a standard virtual environment, `python -m pip install -e '.[test]'`, then
-`python -m tank --demo 16`. Windows: `py -m venv .venv`, activate it, then install
-with pip. Windows runtime has not yet been physically verified.
+Alternatively, use Python directly — no uv or shell activation required:
+
+**Linux:**
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -e .
+.venv/bin/python -m tank --demo 16 --preset high
+```
+
+**Windows (PowerShell):**
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e .
+.\.venv\Scripts\python.exe -m tank --demo 16 --preset high
+```
+
+The Windows example assumes Python 3.12 is installed. Windows runtime has not yet
+been physically verified. This is a source prototype, not a standalone installer.
 
 ```sh
 # Low-cost rendering on a high-resolution display; no automatic population loss.
@@ -135,6 +159,11 @@ uv run python tools/headless_capture.py --demo 16 --preset high \
   --screenshot .local/aquarium.png --run-seconds 6 --settings .local/settings.json
 ```
 
+On an aquarium-only checkout, the two optional C++/RX integration tests skip
+because they require the separate sibling RX source; the aquarium tests still
+run. Install the test extra (`uv sync --extra test` or `python -m pip install -e
+'.[test]'`) before running pytest.
+
 The last two commands require Linux Xvfb. They launch only a temporary local X
 server (`-nolisten tcp`); no xauth installation or system config change is needed.
 Software-renderer timings are not GPU or Pi FPS evidence.
@@ -143,3 +172,15 @@ See [implementation report](docs/IMPLEMENTATION-REPORT.md),
 [protocol](docs/RX-PROTOCOL.md), [asset attribution](assets/ATTRIBUTION.md), and
 [firmware handoff notes](docs/FIRMWARE.md). No radio has been flashed or used over
 the air by this implementation task.
+
+## Related projects
+
+### Looking for the Aquarium firmware?
+https://github.com/DrToxic/LoRagotchi-RX [Pending...]
+
+### Looking for LoRagotchi-DX?
+Original Author: https://github.com/DarkButterfly85/LoRagotchi-DX
+
+Fork: https://github.com/DrToxic/LoRagotchi-DX
+
+RX/DX firmware source and binaries are not included in this aquarium repository.
