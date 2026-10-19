@@ -2,14 +2,15 @@ import math
 from pathlib import Path
 import random
 import time
-from panda3d.core import (AmbientLight,DirectionalLight,Fog,Vec4,WindowProperties,Texture,CardMaker,
-                         TransparencyAttrib,PerspectiveLens,ClockObject,TextureStage,TextNode,loadPrcFileData)
+from panda3d.core import (AmbientLight,DirectionalLight,Fog,WindowProperties,
+                         TransparencyAttrib,ClockObject,TextureStage,TextNode,loadPrcFileData)
 from direct.showbase.ShowBase import ShowBase
 from direct.gui.OnscreenText import OnscreenText
 from direct.gui.DirectGui import DirectFrame,DirectLabel,DirectButton,DirectOptionMenu,DirectSlider
 from .art import fish_model,scenery,ellipsoid,mesh
 from .settings import Settings,PRESETS
 from .simulation import Simulation
+from .views import AquariumView, desktop_lenses
 from .service import Service
 
 class Aquarium(ShowBase):
@@ -36,12 +37,13 @@ class Aquarium(ShowBase):
         fog=Fog("water-depth");fog.setColor(.028,.15,.19);fog.setExpDensity(.012);self.render.setFog(fog)
         self.camera.setPos(0,-32,12);self.camera.lookAt(0,0,5.5)
         self.cam.node().setActive(False)
+        self.views=[];self.second_window=None;self.second_input=None;self._configuring_output=False
+        self._layout=None;self._ui_text={};self._next_ui_update=0.
         self.buffer=None;self.screen=None;self.view_cameras=[]
         self.rebuild_scene()
         self.title=OnscreenText(text="COMMUNITY REEF",pos=(-1.68,.91),scale=.038,fg=(.72,.88,.87,.85),align=TextNode.ALeft,mayChange=True)
         self.subtitle=OnscreenText(text="LoRagotchi · shared fish, one aquarium",pos=(-1.68,.85),scale=.029,fg=(.49,.71,.72,.8),align=TextNode.ALeft)
         self.footer=OnscreenText(text="",pos=(-1.68,-.94),scale=.028,fg=(.65,.8,.79,.8),align=TextNode.ALeft,mayChange=True)
-        self.name_labels={}
         self.build_panel()
         if args.operator:self.toggle_panel()
         self.accept("tab",self.toggle_panel);self.accept("escape",self.escape);self.accept("f",self.fullscreen)
@@ -49,12 +51,13 @@ class Aquarium(ShowBase):
         self.accept("delete",self.remove_selected);self.accept("mouse1",self.select_fish)
         for i,name in enumerate(PRESETS,1):self.accept(str(i),self.set_preset,[name])
         self.accept("window-event",self.on_window)
+        if args.wall_columns==2:self.open_second_window()
         self.service=Service(args)
         self.taskMgr.add(self.update,"aquarium-update")
         gsg=self.win.getGsg()
         print(f"Renderer: {gsg.getDriverVendor()} / {gsg.getDriverRenderer()} / {gsg.getDriverVersion()}",flush=True)
         print(f"Output {self.win.getXSize()}x{self.win.getYSize()}, internal {self.internal_size}, {args.wall_columns} shared-world viewport(s)",flush=True)
-        print("Controls: Tab operator panel; F fullscreen; 1..5 quality; N names; V two-tile wall; click/right-arrow select; Delete remove copy; Esc close",flush=True)
+        print("Controls: Tab operator panel; F fullscreen; 1..5 quality; N names; V second window; click/right-arrow select; Delete remove copy; Esc close",flush=True)
 
     def rebuild_scene(self):
         if hasattr(self,"decor"):self.decor.removeNode()
@@ -81,30 +84,72 @@ class Aquarium(ShowBase):
         self.setup_output()
 
     def setup_output(self):
-        if self.win is None or self.win.getXSize()<1:return
-        width,height=self.win.getXSize(),self.win.getYSize()
-        internal=(max(160,int(width*self.settings.scale)),max(90,int(height*self.settings.scale)))
-        if self.screen:self.screen.removeNode()
-        for camera in self.view_cameras:
-            if camera in self.camList:self.camList.remove(camera)
-            camera.removeNode()
-        self.view_cameras=[]
-        if self.buffer:self.graphicsEngine.removeWindow(self.buffer)
-        self.buffer=self.win.makeTextureBuffer("aquarium-internal",*internal)
-        if not self.buffer:raise RuntimeError("GPU could not allocate requested internal render target; lower render scale/output size")
-        self.buffer.setSort(-100);self.buffer.setClearColor((.012,.075,.115,1));self.internal_size=internal
-        base_lens=PerspectiveLens();base_lens.setFov(60);base_lens.setAspectRatio(width/height);base_lens.setNearFar(.1,120)
-        film=base_lens.getFilmSize();focal=base_lens.getFocalLength()
-        count=self.args.wall_columns
-        for tile in range(count):
-            lens=base_lens.makeCopy()
-            lens.setFilmSize(film.x/count,film.y)
-            lens.setFocalLength(focal)  # film cropping must not retain the full-view FOV
-            lens.setFilmOffset(film.x*((tile+.5)/count-.5),0)
-            camera=self.makeCamera(self.buffer,lens=lens,displayRegion=(tile/count,(tile+1)/count,0,1))
-            camera.node().setScene(self.render);self.view_cameras.append(camera)
-        maker=CardMaker("composite");maker.setFrameFullscreenQuad()
-        self.screen=self.render2d.attachNewNode(maker.generate());self.screen.setTexture(self.buffer.getTexture());self.screen.setBin("background",0);self.screen.setDepthWrite(False);self.screen.setDepthTest(False)
+        if self._configuring_output or self.win is None or not self.win.getProperties().getOpen():return
+        self._configuring_output=True
+        try:
+            if not self.views:self.views.append(AquariumView(self,self.win,primary=True))
+            for view in self.views:view.resize(self.settings.scale)
+            rectangles=[view.rectangle() for view in self.views]
+            if all(w>0 and h>0 for x,y,w,h in rectangles):
+                layout=tuple(rectangles)
+                if layout!=self._layout:
+                    for view,lens in zip(self.views,desktop_lenses(rectangles)):view.set_lens(lens)
+                    self._layout=layout
+            # Kept for diagnostics and the primary-window controls.
+            first=self.views[0]
+            self.buffer,self.screen,self.internal_size=first.buffer,first.screen,first.internal_size
+            self.view_cameras=[view.camera for view in self.views]
+        finally:self._configuring_output=False
+
+    def open_second_window(self):
+        if self.second_window:return
+        props=WindowProperties()
+        props.setTitle("LoRagotchi Aquarium — second view")
+        props.setSize(self.args.second_width or self.win.getXSize(),self.args.second_height or self.win.getYSize())
+        props.setFullscreen(False)
+        if self.args.second_origin:
+            props.setOrigin(*self.args.second_origin)
+        else:
+            primary=self.win.getProperties()
+            props.setOrigin(primary.getXOrigin()+self.win.getXSize(),primary.getYOrigin())
+        # Let Panda create the native GL context for this window. Reusing the
+        # exact same GSG across GLX drawables can produce BadMatch/black windows.
+        window=self.openWindow(props=props,fbprops=self.win.getFbProperties(),
+                               makeCamera=False,type='onscreen')
+        if window is None or not window.isValid():
+            if window is not None:self.closeWindow(window)
+            self.args.wall_columns=1
+            self.status="Second window could not open"
+            return
+        self.second_window=window
+        view=AquariumView(self,window)
+        self.views.append(view)
+        view.names.sync(self.roster)
+        self.second_input=self.setupMouse(window,fMultiWin=True)
+        self.second_input.node().setPrefix('second-')
+        self.accept('second-v',self.toggle_wall)
+        self.accept('second-n',self.toggle_names)
+        self.accept('second-f',self.fullscreen,[window])
+        self.accept('second-escape',self.close_second_window)
+        self.accept('second-arrow_right',self.select_next)
+        self.accept('second-mouse1',self.select_fish,[view,self.second_input.getParent().node()])
+        self.args.wall_columns=2
+        self.setup_output()
+
+    def close_second_window(self):
+        if not self.second_window:return
+        window=self.second_window
+        self.second_window=None
+        view=self.views.pop()
+        view.destroy()
+        for event in ('v','n','f','escape','arrow_right','mouse1'):self.ignore('second-'+event)
+        if self.second_input:
+            # This is the isolated MouseAndKeyboard subtree, not the main input.
+            self.second_input.getParent().getParent().removeNode()
+            self.second_input=None
+        self.closeWindow(window)
+        self.args.wall_columns=1
+        self.setup_output()
 
     def sync_models(self):
         owners={f.owner for f in self.roster}
@@ -114,6 +159,7 @@ class Aquarium(ShowBase):
             if fish.owner not in self.models:
                 model,tail,fins=fish_model(fish,self.settings.detail);model.reparentTo(self.scene);self.models[fish.owner]=(model,tail,fins)
         self.sim.roster(self.roster)
+        for view in self.views:view.names.sync(self.roster)
 
     def build_panel(self):
         self.panel=DirectFrame(frameColor=(.018,.065,.085,.95),frameSize=(-.02,.83,-1.83,.08),pos=(.83,0,.83))
@@ -132,7 +178,7 @@ class Aquarium(ShowBase):
         DirectButton(parent=self.panel,text="Next fish",scale=.032,pos=(.18,0,-1.12),command=self.select_next)
         DirectButton(parent=self.panel,text="Remove copy",scale=.032,pos=(.57,0,-1.12),command=self.remove_selected)
         DirectButton(parent=self.panel,text="Names [N]",scale=.032,pos=(.18,0,-1.24),command=self.toggle_names)
-        DirectButton(parent=self.panel,text="1 / 2 tiles [V]",scale=.032,pos=(.57,0,-1.24),command=self.toggle_wall)
+        DirectButton(parent=self.panel,text="2nd window [V]",scale=.032,pos=(.57,0,-1.24),command=self.toggle_wall)
         self.message_label=label("Inbox: no messages",-1.39,.023)
         self.end_button=DirectButton(parent=self.panel,text="End display session",scale=.032,pos=(.38,0,-1.60),command=self.end_session)
         self.clear_confirm=0
@@ -154,11 +200,13 @@ class Aquarium(ShowBase):
     def escape(self):
         if self.panel_visible:self.toggle_panel()
         else:self.userExit()
-    def fullscreen(self):
-        prop=WindowProperties();prop.setFullscreen(not self.win.getProperties().getFullscreen());self.win.requestProperties(prop)
+    def fullscreen(self,window=None):
+        window=window or self.win
+        prop=WindowProperties();prop.setFullscreen(not window.getProperties().getFullscreen());window.requestProperties(prop)
     def toggle_names(self):self.show_names=not self.show_names
     def toggle_wall(self):
-        self.args.wall_columns=3-self.args.wall_columns;self.setup_output()
+        if self.second_window:self.close_second_window()
+        else:self.open_second_window()
     def select_next(self):
         if self.roster:self.selected=(self.selected+1)%len(self.roster);self.show_names=True
     def end_session(self):
@@ -167,22 +215,34 @@ class Aquarium(ShowBase):
         else:self.clear_confirm=time.monotonic()+5;self.end_button["text"]="Click again to clear copies"
     def remove_selected(self):
         if self.roster:self.service.commands.put(("remove",self.roster[self.selected%len(self.roster)].owner))
-    def select_fish(self):
-        if not self.mouseWatcherNode.hasMouse() or self.panel_visible:return
-        mouse=self.mouseWatcherNode.getMouse();nearest=None
+    def select_fish(self,view=None,watcher=None):
+        view=view or self.views[0]
+        watcher=watcher or self.mouseWatcherNode
+        if not watcher.hasMouse() or (view.primary and self.panel_visible):return
+        mouse=watcher.getMouse();nearest=None
         from panda3d.core import Point2
+        point=Point2()
         for i,fish in enumerate(self.roster):
-            node=self.models[fish.owner][0];point=Point2()
-            # Full-output lens, independent of cropped wall cameras.
-            lens=PerspectiveLens();lens.setFov(60);lens.setAspectRatio(self.win.getXSize()/self.win.getYSize())
-            if lens.project(self.camera.getRelativePoint(self.render,node.getPos(self.render)),point):
+            node=self.models[fish.owner][0]
+            if view.lens.project(self.camera.getRelativePoint(self.render,node.getPos(self.render)),point):
                 distance=(point.x-mouse.x)**2+(point.y-mouse.y)**2
                 if nearest is None or distance<nearest[0]:nearest=(distance,i)
         if nearest and nearest[0]<.04:self.selected=nearest[1];self.show_names=True
+
     def on_window(self,window):
         super().windowEvent(window)
-        if window==self.win and hasattr(self,"buffer"):
-            if self.win.getProperties().getOpen():self.setup_output()
+        if not hasattr(self,'views'):return
+        if window==self.second_window and not window.getProperties().getOpen():
+            self.close_second_window()
+        elif window==self.win or window==self.second_window:
+            if window.getProperties().getOpen():self.setup_output()
+
+    def set_ui_text(self,widget,text):
+        key=id(widget)
+        if self._ui_text.get(key)!=text:
+            if isinstance(widget,OnscreenText):widget.setText(text)
+            else:widget['text']=text
+            self._ui_text[key]=text
 
     def update(self,task):
         dt=min(ClockObject.getGlobalClock().getDt(),.1)
@@ -208,25 +268,20 @@ class Aquarium(ShowBase):
         for node,phase in self.plants:node.setR(math.sin(t*.45+phase)*3)
         for node,x,y,phase,speed in self.bubbles:node.setPos(x+math.sin(t+phase)*.12,y,(phase+t*speed)%12)
         if self.caustic:self.caustic.setTexOffset(TextureStage.getDefault(),t*.009,t*.006)
-        self.footer.setText(f"{len(self.roster)} shared fish   ·   {self.status}   ·   {self.args.wall_columns} viewport(s)   ·   Tab controls")
+        # Static text changes on data changes, not on every rendered frame.
+        self.set_ui_text(self.footer,f"{len(self.roster)} shared fish   ·   {self.status}   ·   {len(self.views)} window(s)   ·   Tab controls")
         aspect=self.getAspectRatio();self.title.setX(-aspect+.07);self.subtitle.setX(-aspect+.07);self.footer.setX(-aspect+.07)
         self.panel.setX(aspect-.9)
-        if self.panel_visible:
-            self.connection_label["text"]=self.status[:44]+("\n"+self.status[44:88] if len(self.status)>44 else "")
-            self.output_label["text"]=f"Output {self.win.getXSize()}×{self.win.getYSize()}\nScene {self.internal_size[0]}×{self.internal_size[1]} · {self.args.wall_columns} tile(s)\n{self.settings.preset} · cap {self.settings.fps} fps"
+        now=time.monotonic()
+        if self.panel_visible and now>=self._next_ui_update:
+            self._next_ui_update=now+.15
+            self.set_ui_text(self.connection_label,self.status[:44]+("\n"+self.status[44:88] if len(self.status)>44 else ""))
+            self.set_ui_text(self.output_label,f"Output {self.win.getXSize()}×{self.win.getYSize()}\nScene {self.internal_size[0]}×{self.internal_size[1]} · {len(self.views)} window(s)\n{self.settings.preset} · cap {self.settings.fps} fps")
             fish=self.roster[self.selected%len(self.roster)] if self.roster else None
-            self.fish_label["text"]=f"{fish.name} · {['fry','young','adult','elder'][fish.stage]}\n{fish.owner[:16]}…" if fish else "No shared fish yet"
-            self.message_label["text"]="Inbox: "+("\n".join(str(m.get('text',''))[:46] for m in self.inbox[-3:]) if self.inbox else "no messages")
-        # Names are a quiet temporary selection aid, never permanently attached UI.
-        from panda3d.core import Point2
-        for label in self.name_labels.values():label.hide()
-        if self.show_names:
-            lens=PerspectiveLens();lens.setFov(60);lens.setAspectRatio(aspect)
-            for fish in self.roster:
-                key=fish.owner;node=self.models[key][0];point=Point2()
-                if lens.project(self.camera.getRelativePoint(self.render,node.getPos(self.render)),point):
-                    if key not in self.name_labels:self.name_labels[key]=OnscreenText(text=fish.name,scale=.027,fg=(.83,.93,.88,.9),mayChange=True)
-                    label=self.name_labels[key];label.setText(fish.name);label.setPos(point.x*aspect,point.y+.07);label.show()
+            self.set_ui_text(self.fish_label,f"{fish.name} · {['fry','young','adult','elder'][fish.stage]}\n{fish.owner[:16]}…" if fish else "No shared fish yet")
+            self.set_ui_text(self.message_label,"Inbox: "+("\n".join(str(m.get('text',''))[:46] for m in self.inbox[-3:]) if self.inbox else "no messages"))
+        for view in self.views:
+            view.names.update(self.show_names,view.lens,self.camera,self.render,self.models,view.aspect)
         elapsed=time.monotonic()-self.start
         if self.args.screenshot and not self.screenshot_done and elapsed>=self.args.capture_after and self.roster:
             path=Path(self.args.screenshot);path.parent.mkdir(parents=True,exist_ok=True)
@@ -237,4 +292,7 @@ class Aquarium(ShowBase):
 
     def destroy(self):
         if hasattr(self,"service"):self.service.close()
+        if hasattr(self,"second_window") and self.second_window:self.close_second_window()
+        for view in getattr(self,"views",[]):view.destroy()
+        self.views=[]
         super().destroy()

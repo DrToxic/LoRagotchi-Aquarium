@@ -1,3 +1,6 @@
+> Follow-up: v0.1.1 replaces oval paths and split-screen views, and caches name text.
+> See [current testing notes](TESTING-v0.1.1.md); the original implementation report below is historical.
+
 # v0.1 implementation report
 
 Date: 2026-10-19. Development/verification record from the local first iteration; **no physical-radio, Pi, Windows
