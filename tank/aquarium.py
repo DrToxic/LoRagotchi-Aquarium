@@ -2,7 +2,7 @@ import math
 from pathlib import Path
 import time
 from panda3d.core import (AmbientLight,DirectionalLight,Fog,WindowProperties,
-                         TransparencyAttrib,ClockObject,TextureStage,TextNode,loadPrcFileData)
+                         TransparencyAttrib,ClockObject,TextureStage,loadPrcFileData)
 from direct.showbase.ShowBase import ShowBase
 from direct.gui.OnscreenText import OnscreenText
 from .art import fish_model,scenery,mesh
@@ -10,14 +10,17 @@ from .settings import Settings,PRESETS
 from .simulation import Simulation
 from .views import AquariumView, desktop_lenses
 from .window_mode import WindowModes
+from .window_drag import WindowDrag
 from .service import Service
 from .options import OptionsPanel
 from .deadzones import DisplayProfile, MAX_WINDOWS
 from .projection import blackout_geometry
 from .text import configure_text, display_text
+from .framing import bounds, regions, aim_at_sand
 from .chat import ChatBubbles
 from .bubbles import AirBubbles
-from .framing import bounds, regions, water_rectangles, aim_at_sand
+from .decorations import DecorationLibrary
+from .shelves import SandShelves
 
 class Aquarium(ShowBase):
     def __init__(self,args):
@@ -35,11 +38,11 @@ class Aquarium(ShowBase):
         if args.no_lighting:self.settings.lighting=False
         if args.no_caustics:self.settings.caustics=False
         if args.no_vsync:self.settings.vsync=False
-        loadPrcFileData("tank",f"window-title LoRagotchi Community Tank\nwin-size {args.width} {args.height}\nfullscreen false\nsync-video {str(self.settings.vsync).lower()}\naudio-library-name null\nframebuffer-multisample 0\ntextures-power-2 none\nnotify-level warning\n")
+        loadPrcFileData("tank",f"window-title LoRagotchi Aquarium — Controls\nwin-size 456 704\nwin-origin 32 32\nundecorated false\nfullscreen false\nsync-video {str(self.settings.vsync).lower()}\naudio-library-name null\nframebuffer-multisample 0\ntextures-power-2 none\nnotify-level warning\n")
         configure_text()
         super().__init__();self.disableMouse();self.setBackgroundColor(.012,.075,.115,1)
         self.sim=Simulation();self.models={};self.roster=[];self.inbox=[];self.status="Starting aquarium…"
-        self.selected=0;self.show_names=False;self.panel_visible=False;self.start=time.monotonic();self.screenshot_done=False
+        self.selected=0;self.show_names=False;self.panel_visible=True;self.start=time.monotonic();self.screenshot_done=False
         self.scene=self.render.attachNewNode("aquarium");self.scene.setTwoSided(True)
         ambient=AmbientLight("blue-water-ambient");ambient.setColor((.63,.71,.73,1));self.ambient=self.render.attachNewNode(ambient)
         sun=DirectionalLight("surface-light");sun.setColor((.95,.95,.82,1));self.sun=self.render.attachNewNode(sun);self.sun.setHpr(-35,-65,0)
@@ -49,33 +52,36 @@ class Aquarium(ShowBase):
         self.chat=ChatBubbles(self.scene,self.camera,self.render,self.settings.chat_bubbles)
         self.cam.node().setActive(False)
         self.views=[];self.second_window=None;self.second_input=None;self._configuring_output=False
-        self._next_view_id=1;self._destroying=False
+        self._next_view_id=0;self._destroying=False
         self._layout=None;self._ui_text={};self._next_ui_update=0.
         self.window_modes=WindowModes(self.pipe)
+        self.window_drag=WindowDrag(self)
         self.buffer=None;self.screen=None;self.view_cameras=[]
+        self.internal_size=(0,0)
+        self.shelves=SandShelves(self)
+        self.decorations=DecorationLibrary(self)
         self.rebuild_scene()
-        self.title=OnscreenText(text="COMMUNITY REEF",pos=(-1.68,.91),scale=.038,fg=(.72,.88,.87,.85),align=TextNode.ALeft,mayChange=True)
-        self.subtitle=OnscreenText(text="LoRagotchi · shared fish, one aquarium",pos=(-1.68,.85),scale=.029,fg=(.49,.71,.72,.8),align=TextNode.ALeft)
-        self.footer=OnscreenText(text="",pos=(-1.68,-.94),scale=.028,fg=(.65,.8,.79,.8),align=TextNode.ALeft,mayChange=True)
+        for i in range(self.start_windows):
+            self.add_window(self.restore_rectangles[i] if self.restore_rectangles else None)
         self.build_panel()
-        if args.operator:self.toggle_panel()
+        self.show_controls()
         self.accept("tab",self.tab);self.accept("escape",self.escape);self.accept("f",self.shortcut,[self.fullscreen])
         self.accept("n",self.shortcut,[self.toggle_names]);self.accept("v",self.shortcut,[self.add_window]);self.accept("arrow_right",self.shortcut,[self.select_next])
-        self.accept("delete",self.shortcut,[self.remove_selected]);self.accept("mouse1",self.select_fish)
+        self.accept("delete",self.shortcut,[self.remove_selected])
         for i,name in enumerate(PRESETS,1):self.accept(str(i),self.shortcut,[self.set_preset,name])
         self.accept("window-event",self.on_window)
-        if self.restore_rectangles:
-            props=WindowProperties();props.setOrigin(*self.restore_rectangles[0][:2]);self.win.requestProperties(props)
-        for i in range(1,self.start_windows):
-            self.add_window(self.restore_rectangles[i] if self.restore_rectangles else None)
         self._sync_secondary()
         if args.fullscreen:self.fullscreen()
         self.service=Service(args)
         self.taskMgr.add(self.update,"aquarium-update")
-        gsg=self.win.getGsg()
+        gsg=(self.aquarium_window or self.win).getGsg()
         print(f"Renderer: {gsg.getDriverVendor()} / {gsg.getDriverRenderer()} / {gsg.getDriverVersion()}",flush=True)
-        print(f"Output {self.win.getXSize()}x{self.win.getYSize()}, internal {self.internal_size}, {args.wall_columns} shared-world viewport(s)",flush=True)
-        print("Controls: Tab operator panel; F borderless fullscreen; 1..5 quality; N names; V add window; click/right-arrow select; Delete remove copy; Esc close",flush=True)
+        print(f"Controls window + {len(self.views)} aquarium view(s); internal {self.internal_size}",flush=True)
+        print("Aquarium: drag anywhere to move; drag edges to resize; Tab controls; F fullscreen; N names; V add view; Esc close view",flush=True)
+
+    @property
+    def aquarium_window(self):
+        return self.views[0].window if self.views else None
 
     def rebuild_scene(self):
         if hasattr(self,"decor"):self.decor.removeNode()
@@ -103,33 +109,35 @@ class Aquarium(ShowBase):
         if self._configuring_output or self.win is None or not self.win.getProperties().getOpen():return
         self._configuring_output=True
         try:
-            if not self.views:self.views.append(AquariumView(self,self.win,primary=True))
+            if not self.views:
+                self.buffer=self.screen=None;self.internal_size=(0,0);self.view_cameras=[]
+                self.sim.set_view(self.sim.volume.origin,self.sim.volume.right,self.sim.volume.forward,
+                                  self.sim.volume.up,self.sim.volume.tan_x,self.sim.volume.tan_y,())
+                self._layout=None
+                self.shelves.layout([],None,self.camera,self.render)
+                return
             for view in self.views:view.resize(self.settings.scale)
             rectangles=[view.rectangle() for view in self.views]
             if all(w>0 and h>0 for x,y,w,h in rectangles):
                 active=tuple(not v.window.getProperties().getMinimized() for v in self.views)
                 layout=(tuple(rectangles),active,tuple(self.display.zones),self.display.constrain)
                 if layout!=self._layout:
-                    water=water_rectangles(rectangles)
-                    full=self.water_lens=desktop_lenses([bounds(water)])[0]
+                    full=self.water_lens=desktop_lenses([bounds(rectangles)])[0]
                     aim_at_sand(self.camera,self.render,full)
-                    for view,lens in zip(self.views,desktop_lenses(water)):view.set_lens(lens)
-                    self.chat.set_view(full)
-                    self.bubbles.set_view(full)
-                    water_regions=regions(water);screen_regions=regions(rectangles)
-                    visible_regions=tuple(r for r,visible in zip(water_regions,active) if visible)
-                    mappings=tuple((w,s) for w,s,visible in zip(water_regions,screen_regions,active) if visible)
+                    for view,lens in zip(self.views,desktop_lenses(rectangles)):view.set_lens(lens)
+                    self.chat.set_view(full);self.bubbles.set_view(full)
+                    self.shelves.layout(rectangles,full,self.camera,self.render)
+                    screen_regions=regions(rectangles)
                     left,top,width,height=bounds(rectangles)
                     rotation=self.camera.getQuat(self.render)
                     self.sim.set_view(tuple(self.camera.getPos(self.render)),tuple(rotation.getRight()),
                                       tuple(rotation.getForward()),tuple(rotation.getUp()),
-                                      math.tan(math.radians(full.getHfov()/2)),
-                                      math.tan(math.radians(full.getVfov()/2)),visible_regions,self.display.zones,self.display.constrain,
-                                      mappings,width/height)
+                                      math.tan(math.radians(full.getHfov()/2)),math.tan(math.radians(full.getVfov()/2)),
+                                      tuple(r for r,visible in zip(screen_regions,active) if visible),
+                                      self.display.zones,self.display.constrain)
                     masks=blackout_geometry(self.display.zones,width/height,max(width,height))
-                    for view,(x,y,w,h) in zip(self.views,rectangles):
-                        view.set_blackout(masks,(2*(x-left)/width-1,2*(x+w-left)/width-1,
-                                                 1-2*(y+h-top)/height,1-2*(y-top)/height))
+                    for view,region in zip(self.views,screen_regions):
+                        view.set_blackout(masks,region)
                     self._layout=layout
                     if hasattr(self,"controls"):self.controls.deadzones.redraw()
             # Kept for diagnostics and the primary-window controls.
@@ -144,9 +152,12 @@ class Aquarium(ShowBase):
         view_id=self._next_view_id;self._next_view_id+=1
         props=WindowProperties();props.setTitle(f"LoRagotchi Aquarium — view {view_id+1}")
         if rectangle is None:
-            width=self.args.second_width or self.win.getXSize()
-            height=self.args.second_height or self.win.getYSize()
-            if len(self.views)==1 and self.args.second_origin:
+            width=(self.args.second_width or self.args.width) if self.views else self.args.width
+            height=(self.args.second_height or self.args.height) if self.views else self.args.height
+            if not self.views:
+                control=self.win.getProperties()
+                x,y=control.getXOrigin()+self.win.getXSize()+24,control.getYOrigin()
+            elif len(self.views)==1 and self.args.second_origin:
                 x,y=self.args.second_origin
             else:
                 # A visible cascade is safer than opening off the desktop. Move
@@ -154,7 +165,7 @@ class Aquarium(ShowBase):
                 last=self.views[-1].rectangle();x,y=last[0]+48,last[1]+48
             rectangle=(x,y,width,height)
         x,y,width,height=rectangle
-        props.setSize(width,height);props.setOrigin(x,y);props.setFullscreen(False)
+        props.setSize(width,height);props.setOrigin(x,y);props.setFullscreen(False);props.setUndecorated(True)
         window=self.openWindow(props=props,fbprops=self.win.getFbProperties(),makeCamera=False,type='onscreen')
         if window is None or not window.isValid():
             if window is not None:self.closeWindow(window)
@@ -166,8 +177,9 @@ class Aquarium(ShowBase):
         for key,callback,args in (
             ('v',self.add_window,[]),('n',self.toggle_names,[]),('f',self.fullscreen,[window]),
             ('escape',self.close_view,[view]),('arrow_right',self.select_next,[]),
-            ('tab',self.tab,[]),('mouse1',self.select_fish,[view,view.input.getParent().node()])):
-            self.accept(prefix+key,self.shortcut,[callback,*args])
+            ('tab',self.show_controls,[]),('mouse1',self.window_drag.begin,[view]),
+            ('mouse1-up',self.window_drag.finish,[view])):
+            self.accept(prefix+key,callback,args)
         self._sync_secondary();self.setup_output()
         if hasattr(self,'controls'):self.controls.deadzones.refresh_windows(view_id)
         return view
@@ -178,9 +190,10 @@ class Aquarium(ShowBase):
         self.args.wall_columns=len(self.views)
 
     def close_view(self,view):
-        if view.primary or view not in self.views:return
+        if view not in self.views:return
+        self.window_drag.finish(view,select=False)
         self.views.remove(view);self.window_modes.discard(view.window)
-        for event in ('v','n','f','escape','arrow_right','tab','mouse1'):self.ignore(f'view-{view.view_id}-'+event)
+        for event in ('v','n','f','escape','arrow_right','tab','mouse1','mouse1-up'):self.ignore(f'view-{view.view_id}-'+event)
         if view.input:view.input.getParent().getParent().removeNode()
         if view.window.getProperties().getOpen():
             # GLX FBO names are context-local. Retire this output immediately
@@ -192,7 +205,9 @@ class Aquarium(ShowBase):
         self.closeWindow(view.window);self._sync_secondary()
         if not self._destroying:
             self.setup_output()
-            if hasattr(self,'controls'):self.controls.deadzones.refresh_windows()
+            if hasattr(self,'controls'):
+                self.controls.deadzones.refresh_windows()
+                if not self.views:self.show_controls()
 
     def open_second_window(self):
         if not self.second_window:return self.add_window()
@@ -239,14 +254,20 @@ class Aquarium(ShowBase):
         self.settings.apply(name);self.rebuild_scene();self.settings.save(self.args.settings)
         if hasattr(self,"scale_slider"):self.scale_slider["value"]=self.settings.scale
     def toggle_panel(self):
-        self.panel_visible=not self.panel_visible
         self.controls.blur()
-        self.panel.show() if self.panel_visible else self.panel.hide()
+        if not self.panel_visible:self.show_controls()
+        else:
+            props=WindowProperties();props.setMinimized(True)
+            self.win.requestProperties(props);self.panel_visible=False
+    def show_controls(self):
+        props=WindowProperties();props.setMinimized(False);props.setForeground(True)
+        self.win.requestProperties(props)
+        self.panel_visible=True
     def escape(self):
-        if self.panel_visible:self.toggle_panel()
-        else:self.userExit()
+        self.toggle_panel()
     def fullscreen(self,window=None):
-        window=window or self.win
+        window=window or (self.controls.deadzones.view().window if hasattr(self,'controls') and self.views else self.aquarium_window)
+        if window is None:return
         try:self.window_modes.toggle(window)
         except (OSError,ValueError) as error:
             self.status=f"Fullscreen unavailable: {error}"
@@ -269,14 +290,16 @@ class Aquarium(ShowBase):
     def remove_selected(self):
         if self.roster:self.service.commands.put(("remove",self.roster[self.selected%len(self.roster)].owner))
     def select_fish(self,view=None,watcher=None):
+        if not self.views:return
         view=view or self.views[0]
-        watcher=watcher or self.mouseWatcherNode
-        if not watcher.hasMouse() or (view.primary and self.panel_visible):return
+        watcher=watcher or view.input.getParent().node()
+        if not watcher.hasMouse():return
         mouse=watcher.getMouse();nearest=None
         from panda3d.core import Point2
         point=Point2()
         for i,fish in enumerate(self.roster):
             node=self.models[fish.owner][0]
+            if node.isHidden():continue
             if view.lens.project(self.camera.getRelativePoint(self.render,node.getPos(self.render)),point):
                 distance=(point.x-mouse.x)**2+(point.y-mouse.y)**2
                 if nearest is None or distance<nearest[0]:nearest=(distance,i)
@@ -286,12 +309,19 @@ class Aquarium(ShowBase):
         super().windowEvent(window)
         if not hasattr(self,'views'):return
         view=next((v for v in self.views if v.window==window),None)
-        if view and not view.primary and not window.getProperties().getOpen():
+        if window==self.win:
+            self.panel_visible=not window.getProperties().getMinimized()
+            if hasattr(self,"controls"):self.controls.resize()
+            # ShowBase otherwise throttles the entire app when its primary
+            # window is minimized, even while aquarium outputs are on display.
+        elif view and not window.getProperties().getOpen():
             self.close_view(view)
         elif view:
             if window.getProperties().getOpen():
                 self.setup_output()
-                if hasattr(self,"controls"):self.controls.resize()
+        self.mainWinMinimized=not self.panel_visible and not any(
+            v.window.getProperties().getOpen() and not v.window.getProperties().getMinimized()
+            for v in self.views)
 
     def set_ui_text(self,widget,text):
         key=id(widget)
@@ -303,6 +333,7 @@ class Aquarium(ShowBase):
 
     def update(self,task):
         dt=min(ClockObject.getGlobalClock().getDt(),.1)
+        self.window_drag.update()
         while not self.service.events.empty():
             event=self.service.events.get_nowait()
             if isinstance(event,dict):
@@ -338,31 +369,33 @@ class Aquarium(ShowBase):
         # Static text changes on data changes, not on every rendered frame.
         waiting=sum(s.parked for s in self.sim.swimmers.values())
         space_note=f" · {waiting} waiting for swim space" if waiting else ""
-        self.set_ui_text(self.footer,f"{len(self.roster)} shared fish{space_note}   ·   {self.status}   ·   {len(self.views)} window(s)   ·   Tab controls")
-        aspect=self.getAspectRatio();self.title.setX(-aspect+.07);self.subtitle.setX(-aspect+.07);self.footer.setX(-aspect+.07)
+        self.set_ui_text(self.footer,f"{len(self.roster)} shared fish{space_note}\n{self.status}")
         now=time.monotonic()
         if self.panel_visible and now>=self._next_ui_update:
             self._next_ui_update=now+.15
             self.controls.refresh()
-            self.set_ui_text(self.output_label,f"Output {self.win.getXSize()}×{self.win.getYSize()}\nScene {self.internal_size[0]}×{self.internal_size[1]} · {len(self.views)} window(s)\n{self.settings.preset} · cap {self.settings.fps} fps")
+            view=self.controls.deadzones.view()
+            self.set_ui_text(self.output_label,(f"View {view.view_id+1}: {view.window.getXSize()}×{view.window.getYSize()} · scene {view.internal_size[0]}×{view.internal_size[1]}\n"
+                                               if view else "No aquarium views — use Add window\n")+
+                               f"{len(self.views)} aquarium window(s) · {self.settings.preset} · cap {self.settings.fps} fps")
             fish=self.roster[self.selected%len(self.roster)] if self.roster else None
             self.set_ui_text(self.fish_label,f"{fish.name} · {['fry','young','adult','elder'][fish.stage]}\n{fish.owner[:16]}…" if fish else "No shared fish yet")
             self.set_ui_text(self.message_label,"Inbox: "+("\n".join(str(m.get('text',''))[:56] for m in self.inbox[-2:]) if self.inbox else "no messages"))
         for view in self.views:
             view.names.update(self.show_names,view.lens,self.camera,self.render,self.models,view.aspect)
         elapsed=time.monotonic()-self.start
-        if self.args.screenshot and not self.screenshot_done and elapsed>=self.args.capture_after and self.roster:
+        if self.args.screenshot and not self.screenshot_done and elapsed>=self.args.capture_after and self.roster and self.views:
             path=Path(self.args.screenshot);path.parent.mkdir(parents=True,exist_ok=True)
-            self.graphicsEngine.renderFrame();self.win.saveScreenshot(str(path));self.screenshot_done=True
+            self.graphicsEngine.renderFrame();self.aquarium_window.saveScreenshot(str(path));self.screenshot_done=True
             print(f"Screenshot: {path.resolve()}",flush=True)
         if self.args.run_seconds and elapsed>=self.args.run_seconds:self.userExit()
         return task.cont
 
     def destroy(self):
         if hasattr(self,"service"):self.service.close()
+        if hasattr(self,"window_drag"):self.window_drag.close()
         if hasattr(self,"chat"):self.chat.destroy()
         self._destroying=True
-        for view in list(getattr(self,"views",[]))[1:]:self.close_view(view)
-        for view in getattr(self,"views",[]):view.destroy()
+        for view in list(getattr(self,"views",[])):self.close_view(view)
         self.views=[]
         super().destroy()

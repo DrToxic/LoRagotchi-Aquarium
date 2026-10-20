@@ -44,7 +44,7 @@ def exercise(app):
     out = Path(".local");out.mkdir(exist_ok=True)
     def capture(path=None):
         app.graphicsEngine.renderFrame();app.graphicsEngine.renderFrame()
-        image = PNMImage();assert app.win.getScreenshot(image)
+        image = PNMImage();assert app.aquarium_window.getScreenshot(image)
         if path:assert image.write(str(out/path))
         return image
     def difference(a,b):
@@ -106,7 +106,7 @@ def exercise(app):
     ids = [b["node"] for b in app.chat.active]
     app.rebuild_scene()
     assert [b["node"] for b in app.chat.active] == ids
-    app.toggle_panel()
+    app.show_controls()
     capture("v018-chat-controls.png")
     app.toggle_chat()
     assert not app.chat.active and not app.chat.queue.pending

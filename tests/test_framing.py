@@ -7,7 +7,7 @@ from panda3d.core import NodePath, Point2, Point3
 from tank.bubbles import AirBubbles
 from tank.chat import CHANNEL, ChatBubbles
 from tank.deadzones import Deadzone
-from tank.framing import SAND_BACK, aim_at_sand, bounds, regions, water_rectangles
+from tank.framing import SAND_BACK, aim_at_sand, bounds, regions
 from tank.swim_volume import SwimVolume
 from tank.views import desktop_lenses
 
@@ -16,10 +16,9 @@ def frame(rectangles):
     render = NodePath("render")
     camera = render.attachNewNode("camera")
     camera.setPos(0,-32,12)
-    water = water_rectangles(rectangles)
-    full = desktop_lenses([bounds(water)])[0]
+    full = desktop_lenses([bounds(rectangles)])[0]
     aim_at_sand(camera,render,full)
-    return render,camera,full,desktop_lenses(water)
+    return render,camera,full,desktop_lenses(rectangles)
 
 
 @pytest.mark.parametrize("rectangles", [
@@ -30,21 +29,24 @@ def frame(rectangles):
     [(-1920,-200,1920,1080),(0,400,2560,1440),(2560,-600,800,600)],
     [(0,0,1280,720),(0,1080,1280,720)],
 ])
-def test_every_window_has_its_own_lower_third_sand_line(rectangles):
+def test_sand_anchors_combined_panorama_and_views_use_physical_offsets(rectangles):
     render,camera,full,lenses = frame(rectangles)
-    for lens in lenses:
+    point = Point2()
+    full.project(camera.getRelativePoint(render,Point3(*SAND_BACK)),point)
+    assert point.y == pytest.approx(-1/3,abs=2e-6)
+    for lens,(a,b,c,d) in zip(lenses,regions(rectangles)):
         point = Point2()
         lens.project(camera.getRelativePoint(render,Point3(*SAND_BACK)),point)
-        assert point.y == pytest.approx(-1/3,abs=2e-6)
+        assert c+(point.y+1)*(d-c)/2 == pytest.approx(-1/3,abs=2e-6)
     assert full.getHfov() <= 60.001 and full.getVfov() <= 60.001
 
 
 @pytest.mark.parametrize("shape", ["Rectangle","Rounded rectangle","Ellipse"])
 @pytest.mark.parametrize("inverted", [False,True])
-def test_sand_aligned_water_constraints_match_physical_screen_masks(shape,inverted):
+def test_panoramic_water_constraints_match_physical_screen_masks(shape,inverted):
     rects = [(0,0,1280,720),(1280,300,960,540)]
     render,camera,full,lenses = frame(rects)
-    water = regions(water_rectangles(rects))
+    water = regions(rects)
     screen = regions(rects)
     rotation = camera.getQuat(render)
     zone = Deadzone(shape,16,10,73,78,inverted=inverted)

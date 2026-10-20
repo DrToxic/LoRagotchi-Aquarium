@@ -52,7 +52,8 @@ class SwimVolume:
             return True
         if not self.screen_regions:
             return not any(zone.blocks(box,self.aspect) for zone in self.zones)
-        # Water is vertically sand-aligned; masks remain in real desktop space.
+        # Optional compatibility mapping for callers with distinct water and
+        # screen coordinates. The current app uses one physical panorama.
         # Test each visible piece of the footprint against the exact same
         # desktop coordinates used by that window's projector overlay.
         visible = False

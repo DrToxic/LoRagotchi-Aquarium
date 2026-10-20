@@ -15,18 +15,18 @@ def exercise(app):
     while len(app.roster)!=48 and time.monotonic()<deadline:app.taskMgr.step()
     assert len(app.roster)==48
     controls=app.controls;panel=controls.deadzones
-    app.toggle_panel();controls.page('Deadzones')
+    app.show_controls();controls.page('Deadzones')
     Path('.local').mkdir(exist_ok=True)
-    assert list(controls.tabs)==['Aquarium','RX Radio','Deadzones']
+    assert list(controls.tabs)==['Aquarium','RX Radio','Deadzones','Decorations']
     for width,height in ((1280,720),(2560,1440),(3840,2160),(800,450)):
         props=WindowProperties();props.setSize(width,height);app.win.requestProperties(props);settle(app)
         controls.resize();app.graphicsEngine.renderFrame()
         assert app.panel.getSx()*controls.HEIGHT<=height-24+.01
         assert app.win.saveScreenshot(f'.local/v014-deadzones-{width}.png')
-    props=WindowProperties();props.setOrigin(800,0);props.setSize(960,540);app.win.requestProperties(props);settle(app)
+    props=WindowProperties();props.setOrigin(800,0);props.setSize(960,540);app.aquarium_window.requestProperties(props);settle(app)
     # Disjoint, vertically offset three-window arrangement with a missing corner.
     second=app.add_window((0,300,760,540));third=app.add_window((800,580,760,440));settle(app)
-    assert len(app.views)==len(app.winList)==3
+    assert len(app.views)==3 and len(app.winList)==4
     assert all(isinstance(v.window,GraphicsWindow) for v in app.views)
     ids=set(app.sim.swimmers)
     for _ in range(6):app.taskMgr.step()

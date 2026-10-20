@@ -1,8 +1,8 @@
 """Native windows, desktop-aligned frusta and immutable name geometry.
 
 Panda3D owns OS windows, render targets and text shaping. Scene cameras share the
-same simulation; sand-aligned water rectangles define their crops, while actual
-desktop rectangles (including negative origins) own masks and window placement.
+same simulation; actual desktop rectangles (including negative origins and Y
+offsets) define crops, masks and placement. The operator window is not a crop.
 """
 import math
 from panda3d.core import CardMaker, NodePath, PerspectiveLens, Point2, TextNode, TransparencyAttrib
@@ -109,12 +109,13 @@ class AquariumView:
         self.internal_size = None
         self.output_size = None
         self.lens = PerspectiveLens()
-        self.root = app.render2d if primary else NodePath('second-window-overlay')
-        if not primary:
-            self.root.setDepthTest(False)
-            self.root.setDepthWrite(False)
-            self.overlay_camera = app.makeCamera2d(window)
-            self.overlay_camera.node().setScene(self.root)
+        # The ShowBase primary window belongs exclusively to the operator.
+        # Every aquarium, including the first, owns its own clean overlay.
+        self.root = NodePath('aquarium-overlay')
+        self.root.setDepthTest(False)
+        self.root.setDepthWrite(False)
+        self.overlay_camera = app.makeCamera2d(window)
+        self.overlay_camera.node().setScene(self.root)
         self.aspect_root = self.root.attachNewNode('window-aspect')
         self.names = NameLabels(self.aspect_root)
 
@@ -184,8 +185,7 @@ class AquariumView:
         self._remove_target()
         self.names.destroy()
         self.aspect_root.removeNode()
-        if not self.primary:
-            if self.overlay_camera:
-                self.overlay_camera.node().setActive(False)
-                self.overlay_camera.removeNode()
-            self.root.removeNode()
+        if self.overlay_camera:
+            self.overlay_camera.node().setActive(False)
+            self.overlay_camera.removeNode()
+        self.root.removeNode()

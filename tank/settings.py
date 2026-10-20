@@ -1,4 +1,4 @@
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 import json
 from pathlib import Path
 
@@ -21,6 +21,7 @@ class Settings:
     fps:int=45
     vsync:bool=True
     chat_bubbles:bool=True
+    decorations:dict=field(default_factory=dict)
     def apply(self,name):
         for k,v in PRESETS[name].items():setattr(self,k,v)
         self.preset=name
@@ -32,5 +33,6 @@ class Settings:
         try:
             raw=json.loads(Path(path).read_text());s=cls(**raw)
             if not .25<=s.scale<=2 or not 8<=s.detail<=48 or not 0<=s.plants<=100 or not 0<=s.bubbles<=100 or not 10<=s.fps<=240:raise ValueError()
+            if not isinstance(s.decorations,dict) or not all(isinstance(k,str) and isinstance(v,bool) for k,v in s.decorations.items()):raise ValueError()
             return s
         except (OSError,ValueError,TypeError):return cls()

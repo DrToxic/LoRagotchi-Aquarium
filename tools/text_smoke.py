@@ -21,7 +21,7 @@ def exercise(app):
     app.roster = [replace(f, name=samples[i % len(samples)]) for i, f in enumerate(app.roster)]
     app.sync_models()
     app.show_names = True
-    app.toggle_panel()
+    app.show_controls()
     app.status = 'Connected to 🐟 ☣️ RX'
     app.inbox = [{'text': '🐟 ☣️ Hello 中'}]
     app._next_ui_update = 0
@@ -29,13 +29,13 @@ def exercise(app):
         app.taskMgr.step()
     assert app.fish_label['text'].startswith(display_text(samples[0]))
     assert display_text('🐟 ☣️ Hello 中') in app.message_label['text']
-    assert display_text(app.status) in app.footer.getText()
+    assert display_text(app.status) in app.footer['text']
 
     out = Path('.local')
     out.mkdir(exist_ok=True)
     # Readable large proof within the real aquarium, not a mocked text raster.
     proof = OnscreenText(
-        parent=app.aspect2d,
+        parent=app.views[0].aspect_root,
         text=display_text('🐟 Tank ☣️\n🐠 🐡 🦈 😀\nCafé · Рыба · Ελληνικά\nUnknown 中 → ?'),
         pos=(-1.62, .62), scale=.075, align=TextNode.ALeft,
         fg=(.83,.93,.88,1), mayChange=True,
@@ -49,7 +49,7 @@ def exercise(app):
         app.graphicsEngine.renderFrame()
         app.graphicsEngine.renderFrame()
         image = PNMImage()
-        assert app.win.getScreenshot(image)
+        assert app.aquarium_window.getScreenshot(image)
         return image
     app.taskMgr.remove('aquarium-update')
     proof.setText(display_text('🐟 ☣️ 🐠 🐡 🦈'))

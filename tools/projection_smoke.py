@@ -20,9 +20,9 @@ def exercise(app):
     for _ in range(3):app.taskMgr.step()
     app.taskMgr.remove('aquarium-update')
     props=WindowProperties();props.setOrigin(0,0);props.setSize(960,540)
-    app.win.requestProperties(props);settle(app)
+    app.aquarium_window.requestProperties(props);settle(app)
     panel=app.controls.deadzones
-    app.panel.hide()
+    app.panel.show()
     def capture(view):
         settle(app)
         image=PNMImage();assert view.window.getScreenshot(image)
@@ -69,13 +69,14 @@ def exercise(app):
     assert full[1]==full[0] and full[2]==0
     print(f'PASS all 3 shapes in both modes: {totals[0]} sampled pixels, {totals[1]} exactly black, {totals[2]} match the unmasked image; disabled/steering-only, combined and full-size masks',flush=True)
     # Recoverability: even with all output black, Tab controls remain usable.
-    app.toggle_panel();app.controls.page('Deadzones')
-    panel.selected=0;panel.show_selected();image=capture(app.views[0])
-    assert sum(sum(image.getXel(x,y)) for x in range(600,940,20) for y in range(30,500,20))>10
+    app.show_controls();app.controls.page('Deadzones')
+    panel.selected=0;panel.show_selected();settle(app)
+    image=PNMImage();assert app.win.getScreenshot(image)
+    assert sum(sum(image.getXel(x,y)) for x in range(20,430,20) for y in range(30,500,20))>10
     assert image.write('.local/v015-blackout-controls.png')
     panel.shape.showPopupMenu()
     assert not panel.shape.popupMenu.isHidden()
-    assert capture(app.views[0]).write('.local/v015-blackout-popup.png')
+    settle(app);assert app.win.saveScreenshot('.local/v015-blackout-popup.png')
     panel.shape.hidePopupMenu()
     panel.blackout_button['command']();assert not app.display.zones[0].blackout
     panel.blackout_button['command']();assert app.display.zones[0].blackout
@@ -89,7 +90,7 @@ def exercise(app):
     assert all(not s.parked and app.sim.volume.allows((s.x,s.y,s.z),s.outline) for s in app.sim.swimmers.values())
     assert capture(app.views[0]).write('.local/v015-circle-controls.png')
     app.toggle_panel();assert capture(app.views[0]).write('.local/v015-circle-output.png')
-    print('PASS per-zone toggles persist, editor remains above full blackout, closed controls yield clean circular output',flush=True)
+    print('PASS per-zone toggles persist, separate editor survives full blackout, aquarium stays clean',flush=True)
     print('CHECK add two native views',flush=True)
     second=app.add_window((1000,120,640,420));third=app.add_window((0,600,640,360));settle(app)
     for inverted in (False,True):
@@ -131,7 +132,7 @@ def exercise(app):
     print('CHECK last extra window close',flush=True)
     app.close_view(third);settle(app)
     app.settings.scale=.35
-    props=WindowProperties();props.setOrigin(0,0);props.setSize(3840,2160);app.win.requestProperties(props);settle(app)
+    props=WindowProperties();props.setOrigin(0,0);props.setSize(3840,2160);app.aquarium_window.requestProperties(props);settle(app)
     values=compare([circle])
     assert values[1]>10000 and values[2]>10000
     print('PASS 4K circular blackout at output resolution with 0.35 scene scale',flush=True)

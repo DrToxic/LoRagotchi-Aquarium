@@ -29,7 +29,7 @@ def exercise(self):
     deadline=time.monotonic()+20
     while len(self.roster)!=expected and time.monotonic()<deadline:self.taskMgr.step()
     assert len(self.roster)==expected
-    self.toggle_panel();assert self.panel_visible
+    assert self.panel_visible
     before={key:state for key,state in self.sim.swimmers.items()}
     self.set_preset('low');assert len(self.models)==expected
     assert all(self.sim.swimmers[key] is state for key,state in before.items())
@@ -47,32 +47,32 @@ def exercise(self):
     assert primary.names.builds==builds+1
     print(f'PASS {expected} fish: cached names, rename refresh, graphics retain swimming state',flush=True)
 
-    original_size=(self.win.getXSize(),self.win.getYSize())
+    original_size=(self.aquarium_window.getXSize(),self.aquarium_window.getYSize())
     self.fullscreen();settle(self)
-    assert not self.win.getProperties().getFullscreen()
+    assert not self.aquarium_window.getProperties().getFullscreen()
     # Xvfb has no WM to apply decoration hints. Windows style changes need the
     # physical Windows check; here verify actual dimensions and no mode switch.
-    if sys.platform=='win32':assert self.win.getProperties().getUndecorated()
-    assert (self.win.getXSize(),self.win.getYSize())==(self.pipe.getDisplayWidth(),self.pipe.getDisplayHeight())
+    if sys.platform=='win32':assert self.aquarium_window.getProperties().getUndecorated()
+    assert (self.aquarium_window.getXSize(),self.aquarium_window.getYSize())==(self.pipe.getDisplayWidth(),self.pipe.getDisplayHeight())
     self.fullscreen();settle(self)
-    assert (self.win.getXSize(),self.win.getYSize())==original_size
-    assert not self.win.getProperties().getUndecorated()
+    assert (self.aquarium_window.getXSize(),self.aquarium_window.getYSize())==original_size
+    assert self.aquarium_window.getRequestedProperties().getUndecorated() or self.aquarium_window.getProperties().getUndecorated()
     print('PASS borderless fullscreen and exact window-size restore without hardware mode switch',flush=True)
 
     self.taskMgr.remove('aquarium-update')  # frozen reference world for pixel comparison
-    self.panel.hide();self.title.hide();self.subtitle.hide();self.footer.hide()
+    self.panel.hide()
     primary.names.root.hide()
-    props=WindowProperties();props.setOrigin(0,0);props.setSize(1280,360);self.win.requestProperties(props)
-    whole=capture(self,self.win)
+    props=WindowProperties();props.setOrigin(0,0);props.setSize(1280,360);self.aquarium_window.requestProperties(props)
+    whole=capture(self,self.aquarium_window)
     assert (whole.getXSize(),whole.getYSize())==(1280,360)
-    props=WindowProperties();props.setSize(640,360);self.win.requestProperties(props)
+    props=WindowProperties();props.setSize(640,360);self.aquarium_window.requestProperties(props)
     settle(self)
     self.args.second_width=640;self.args.second_height=360;self.args.second_origin=[640,0]
     self.toggle_wall()
-    assert isinstance(self.second_window,GraphicsWindow) and self.second_window!=self.win
-    assert len(self.views)==2 and len(self.winList)==2
+    assert isinstance(self.second_window,GraphicsWindow) and self.second_window!=self.aquarium_window
+    assert len(self.views)==2 and len(self.winList)==3
     for view in self.views:view.names.root.hide()
-    left=capture(self,self.win);right=capture(self,self.second_window)
+    left=capture(self,self.aquarium_window);right=capture(self,self.second_window)
     error=0.;n=0
     for y in range(0,360,4):
         for x in range(0,1280,4):
@@ -88,7 +88,7 @@ def exercise(self):
     props=WindowProperties();props.setOrigin(640,120);self.second_window.requestProperties(props)
     settle(self)
     assert [v.buffer for v in self.views]==buffers
-    for _ in range(3):self.on_window(self.win);self.on_window(self.second_window)
+    for _ in range(3):self.on_window(self.aquarium_window);self.on_window(self.second_window)
     assert [v.buffer for v in self.views]==buffers
     props=WindowProperties();props.setSize(800,450);self.second_window.requestProperties(props)
     settle(self)

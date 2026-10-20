@@ -61,6 +61,12 @@ class Simulation:
         self.reservations = {}
         self._view_config = None
         self._layout_dirty = False
+        self._obstacles_dirty = False
+
+    def obstacles_changed(self):
+        self._layout_dirty = self._obstacles_dirty = True
+        for s in self.swimmers.values():
+            s.remaining = 0.
 
     def set_view(self, origin, right, forward, up, tan_x, tan_y, regions, zones=(), constrain=True,
                  screen_regions=(), screen_aspect=None):
@@ -150,7 +156,9 @@ class Simulation:
         unavailable=set()
         for key,s in self.swimmers.items():
             origin=(s.x,s.y,s.z)
-            if not s.parked and self.volume.allows(origin,s.outline):continue
+            if (not s.parked and self.volume.allows(origin,s.outline) and
+                (not self._obstacles_dirty or self.physics.clear_at(
+                    s.stage,origin,s.heading,ignore=key,static_only=True))):continue
             choices=[]
             fallback=None
             for _ in range(0 if s.stage in unavailable else 100):
@@ -170,6 +178,7 @@ class Simulation:
                 s.x,s.y,s.z=point;body.setPos(*point)
             s.remaining=0.
         self._layout_dirty=False
+        self._obstacles_dirty=False
 
     def step(self, dt):
         dt = clamp(dt, 0., .1)

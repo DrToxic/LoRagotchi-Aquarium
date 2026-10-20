@@ -12,7 +12,7 @@ class DeadzonePanel:
         self.selected=None;self.selected_view=0;self.outlines=False;self.overlay_nodes=[]
         c=controls
         c.label(parent,'WINDOWS & SWIMMING AREA',18,105,12)
-        self.window_menu=c.menu(parent,['View 1 (main)'],24,137,226,self.choose_window)
+        self.window_menu=c.menu(parent,['View 1'],24,137,226,self.choose_window)
         self.add_button=c.button(parent,'Add',270,137,66,self.add_window)
         self.close_button=c.button(parent,'Close',346,137,68,self.close_window)
         c.button(parent,'Save layout',18,178,120,self.save_layout)
@@ -44,24 +44,27 @@ class DeadzonePanel:
     def choose_window(self,label):
         if hasattr(self,'window_ids') and label in self.window_ids:
             self.selected_view=self.window_ids[label]
-            self.controls.enabled(self.close_button,self.selected_view!=0)
+            self.controls.enabled(self.close_button,True)
             self.redraw()
 
     def refresh_windows(self,selected=None):
         if selected is not None:self.selected_view=selected
-        self.window_ids={f'View {v.view_id+1}'+(' (main)' if v.primary else ''):v.view_id for v in self.app.views}
-        if self.selected_view not in self.window_ids.values():self.selected_view=0
-        self.window_menu['items']=list(self.window_ids)
-        self.window_menu.set(next(k for k,v in self.window_ids.items() if v==self.selected_view),fCommand=0)
-        self.controls.enabled(self.close_button,self.selected_view!=0)
+        self.window_ids={f'View {v.view_id+1}':v.view_id for v in self.app.views}
+        if self.selected_view not in self.window_ids.values():
+            self.selected_view=next(iter(self.window_ids.values()),None)
+        self.window_menu['items']=list(self.window_ids) or ['No aquarium views']
+        self.window_menu.set(next((k for k,v in self.window_ids.items() if v==self.selected_view),'No aquarium views'),fCommand=0)
+        self.controls.enabled(self.close_button,bool(self.window_ids))
         self.controls.enabled(self.add_button,len(self.app.views)<MAX_WINDOWS)
         self.bounds_button['text']='Edges: '+('on' if self.app.display.constrain else 'off')
         self.redraw()
 
-    def view(self):return next(v for v in self.app.views if v.view_id==self.selected_view)
+    def view(self):return next((v for v in self.app.views if v.view_id==self.selected_view),None)
     def add_window(self):self.app.add_window()
-    def close_window(self):self.app.close_view(self.view())
-    def fullscreen(self):self.app.fullscreen(self.view().window)
+    def close_window(self):
+        if self.view():self.app.close_view(self.view())
+    def fullscreen(self):
+        if self.view():self.app.fullscreen(self.view().window)
     def save_layout(self):
         if self.app.save_display(windows=True):self.note['text']='Window positions and sizes saved for the next launch.\nUse --wall-columns 1 to ignore a saved window layout.'
         else:self.note['text']=self.app.status
@@ -117,7 +120,7 @@ class DeadzonePanel:
         setattr(self,'draft_'+flag,value)
         button=self.blackout_button if flag=='blackout' else self.invert_button
         button['text']=('Blackout: ' if flag=='blackout' else 'Invert: ')+('on' if value else 'off')
-        self.note['text']=('Blackout paints the excluded area black, including scenery.\nClose controls with Tab for clean projector output.' if flag=='blackout' else
+        self.note['text']=('Blackout paints the excluded area black, including scenery.\nControls remain in their own window.' if flag=='blackout' else
                            'Invert keeps fish inside this shape; outside is excluded.\nMultiple inverted shapes keep only their shared interior.')
         if self.selected is not None:
             self.app.display.zones[self.selected]=replace(self.app.display.zones[self.selected],**{flag:value})
@@ -127,6 +130,7 @@ class DeadzonePanel:
         if self.selected is not None:
             self.app.display.zones.pop(self.selected);self.selected=None;self.persist();self.show_selected()
     def place(self,event):
+        if not self.app.views:return
         watcher=self.app.mouseWatcherNode
         if not watcher.hasMouse():return
         mouse=watcher.getMouse()

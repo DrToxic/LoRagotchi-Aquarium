@@ -6,7 +6,7 @@ share the artwork's transforms. Bullet supplies broadphase, CCD and the solver.
 import math
 from panda3d.core import NodePath, Vec3, loadPrcFileData
 from panda3d.bullet import (BulletWorld, BulletRigidBodyNode, BulletCapsuleShape,
-                           BulletConvexHullShape, BulletPlaneShape, XUp)
+                           BulletConvexHullShape, BulletPlaneShape, BulletBoxShape, XUp)
 from .habitat import FISH_SCALES, TANK_LIMITS, reef_rocks, coral_branches
 
 
@@ -38,6 +38,7 @@ class CollisionWorld:
         self.bodies = {}
         self.statics = []
         self.probes = {}
+        self.groups = {}
         for axis, (low, high) in enumerate(TANK_LIMITS):
             for sign, boundary in ((1, low), (-1, high)):
                 normal = [0, 0, 0]; normal[axis] = sign
@@ -56,6 +57,21 @@ class CollisionWorld:
         path.setPos(*pos); path.setHpr(*hpr)
         self.world.attachRigidBody(node)
         self.statics.append(path)
+        return path
+
+    def replace_boxes(self, group, boxes):
+        """Replace a decoration's solids, never a hull enclosing its openings.
+
+        Entries are (world centre, full size, world HPR). The artwork and these
+        proxies share transforms; removing an object removes its collisions too.
+        """
+        for path in self.groups.pop(group, []):
+            self.world.removeRigidBody(path.node())
+            self.statics.remove(path)
+            path.removeNode()
+        self.groups[group] = [
+            self._static(group, BulletBoxShape(Vec3(*(s/2 for s in size))), pos, hpr)
+            for pos, size, hpr in boxes]
 
     def add(self, key, stage, pos, heading):
         if key in self.bodies:

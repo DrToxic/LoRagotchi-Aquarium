@@ -1,4 +1,4 @@
-# LoRagotchi-Aquarium · v0.1.9
+# LoRagotchi-Aquarium · v0.1.10
 
 A native **Python + Panda3D** aquarium for shared LoRagotchi fish. Real 3D fish,
 independent cruise/glide swimming, animated tails/turns, original procedural scenery, adjustable graphics, durable
@@ -66,11 +66,18 @@ uv run loragotchi-tank --demo 16 --fullscreen --width 3840 --height 2160 --prese
 uv run loragotchi-tank --demo --detail 12 --plants 10 --bubbles 4 --fps 30 --no-caustics
 ```
 
-`Tab`: operator controls · `F`: borderless fullscreen · `1…5`: quality presets · `N`: names ·
-`V`: add another window (up to eight) · click/right arrow: select fish · `Delete`: remove selected copy ·
-`Esc`: close panel, then exit. While editing a text field, aquarium shortcuts are
-suspended and `Tab` advances to the next field. End display session asks for a second click; this
-hides display copies and never sends a radio RETURN. New shares can reappear.
+The **first window is the operator/settings window**; the aquarium opens in a
+second, undecorated window. Close the settings window to quit the application;
+its minimize button leaves the aquarium running.
+
+In an aquarium: **drag anywhere** to move, **drag a 9-pixel edge/corner** to resize,
+`Tab` brings settings forward, `F` toggles borderless fullscreen, `N` toggles names,
+`V` adds a view, click/right arrow selects fish, and `Esc` closes just that view.
+All aquarium views can be closed and reopened without deleting the collection.
+In settings, `1…5` changes quality, `Delete` removes the selected copy, and `Tab`
+advances between focused fields (otherwise minimizes/restores settings).
+End display session requires a second click and only clears local display copies;
+it never sends a radio RETURN. New shares can reappear.
 
 Names and incoming text use bundled Liberation Sans plus **Noto Emoji**
 monochrome glyphs, including 🐟 and ☣. No extra system font installation is
@@ -115,33 +122,44 @@ channel-message protocol. Synthetic protocol, serial/TCP and rendered pixel
 checks are documented in [v0.1.8 testing notes](docs/TESTING-v0.1.8.md).
 Physical radio/Windows validation of this new feature remains pending.
 
-### Per-window water framing (v0.1.9)
+### Continuous panoramic water (v0.1.10)
 
-The sand's far edge sits **one-third up from the bottom of each window** (with
-small natural ripples). It follows that window's height, including after resize
-or fullscreen; adding a taller screen does not fill its neighbours with sand.
-Portrait layouts crop the sides rather than showing an oversized empty sky.
+Every aquarium window is a crop of **one shared 3D world**, using its actual
+**desktop X and Y position**, including negative origins and unequal sizes.
+Adjacent windows align fish, scenery and chat in both axes. There are no fade
+handoffs or per-window fish assignments. The settings window is excluded from
+water bounds, saved output geometry and projector masks.
 
-Both the small decorative air bubbles and channel-chat bubbles now travel beyond
-the **current top of the visible water** before recycling/removal. Chat keeps its
-position and cached text when the layout changes; it no longer expires at an old
-height or deadline after a resize. No fish data or radio changes are required.
-See [framing and bubble regression checks](docs/TESTING-v0.1.9.md).
+The sand's far edge sits one-third up the **combined panorama**; its depth varies
+between individual views. This replaces v0.1.9's per-window sand anchoring, which
+broke continuity at vertical offsets. Upper windows in vertically stacked layouts
+receive sand-covered rock shelves. They leave a broad centre opening and an open
+foreground swim route between levels. Moving/resizing a view reframes the combined
+world and updates the shelves; side-by-side offsets do not create shelves.
 
-Each view is a **real, independently movable/resizable OS window**, not a split
-screen. All windows share the same fish and simulation. Horizontal desktop
-positions, widths and gaps determine their shared water spans, including negative
-origins. Vertical framing is anchored at each window's sand line, **not the OS
-desktop Y offset**: vertically stacked/overlapping horizontal spans can show the
-same fish. Equal-height side-by-side views still form one continuous aquarium.
-Actual desktop positions/sizes remain authoritative for saved placement,
-deadzone percentages, outlines and blackouts. Move/resize windows to match your
-setup; changing the combined water bounds reframes the shared scene.
+Air and channel-chat bubbles travel beyond the **current top of the combined
+water** before recycling/removal. Chat keeps its position and cached text through
+layout changes. Portrait panoramas crop sides instead of exposing excessive sky.
 
-In an additional window, `N` toggles names, `F` toggles that window's fullscreen,
-click/right arrow selects fish, `V` adds a view, and `Esc`/the close button closes
-only that view. `Tab` toggles controls in the **main** window. Windows can also be
-selected, added, closed and made fullscreen in **Tab → Deadzones**.
+Aquarium outputs request no OS decorations. Move and resize use the client area,
+without depending on a particular desktop's title bar. Native pointer behavior
+is tested on Linux X11/Xvfb; Windows, KDE/GNOME/LXDE/Xfce window-manager policies,
+XWayland compositor restrictions and mixed-DPI behavior still need device testing.
+Select, add, close or fullscreen any aquarium in **Controls → Deadzones**.
+The controls remain in their own rectangular window, including with circular masks.
+
+### Decoration library
+
+**Controls → Decorations** lists checkbox toggles for the pirate ship wreck,
+ancient stone arch, treasure chest, old anchor and clay pots. The ship and chest
+start enabled. The ship's broken middle and the arch's opening are real swim-through
+routes: only solid parts have collision boxes. Toggling an object changes both its
+art and collisions; fish copies are never removed. Graphics presets preserve choices.
+
+Add static `.egg`/`.bam` models and `decoration.json` in
+[`tank/assets/decorations/`](tank/assets/decorations/README.md), then press
+**Refresh library**. No application-code edits or new dependencies are required.
+The library guide documents placement, collision boxes and an example manifest.
 
 On Windows, fullscreen uses the containing monitor’s bounds without changing its
 display mode; toggling back restores the previous window size and position. This
@@ -160,15 +178,15 @@ in v0.1.1.
 ### Deadzones and display layouts (v0.1.4)
 
 Open **Tab → Deadzones**. **Edges: on** is the default: the complete fish silhouette
-(body, fins and tail) stays within the union of non-minimized, sand-aligned water
-areas. Fish can cross adjoining/overlapping water spans, but cannot swim through
-a horizontal gap or missing corner of those spans. A physical vertical desktop
-gap is not a water gap: each window keeps its own lower-third sand line.
+(body, fins and tail) stays within the union of non-minimized aquarium client
+rectangles. Fish can cross adjoining/overlapping spans, but cannot swim through
+a horizontal or vertical desktop gap or missing corner. Adjacent vertical views
+are connected; shelves leave open passages.
 Disconnected water areas keep their fish until the layout changes. Manual zones work at all
 fish depths. **Edges: off** restores unrestricted gap-crossing; zones still apply.
 
 - **Add / Close:** up to eight native windows. Select a view in the dropdown;
-  the main view cannot be closed here. New views cascade so you can place them.
+  any aquarium may be closed, including the last. New views cascade for placement.
 - **Save layout:** remembers current window positions, sizes and count for next
   launch. `--wall-columns 1` ignores saved window geometry; `--wall-columns N`
   explicitly starts 1–8 windows. Each window is still freely movable/resizable.
@@ -206,10 +224,10 @@ produces a centred physical circle; on a square output use `0 / 0 / 100 / 100`.
 These percentages describe the entire combined window layout, not the selected
 view. Use other dimensions for oval surfaces or a smaller circular projection.
 
-Controls remain visible above the mask while open so a full blackout cannot lock
-you out. Close them with **Tab** for clean projection, and turn **Outlines off**.
-Use **F** for borderless output (OS title bars/desktop outside the client aren't
-part of the aquarium mask). Blackout emits RGB zero; physical projector black
+Controls stay in their separate, unmasked window, so even full blackout cannot
+lock you out. Turn **Outlines off** for clean projection. Outputs are already
+borderless; **F** fills the monitor. Desktop outside the client isn't part of
+the aquarium mask. Blackout emits RGB zero; physical projector black
 levels depend on the projector. No edge blending/keystone correction is included.
 
 The preview shows window rectangles in teal, gaps in dark, and exclusions in
@@ -236,7 +254,7 @@ Names and operator UI are optional. Synthetic mode is clearly labelled.
 
 ## RX connections
 
-Press **Tab → RX Radio**. The panel stays a compact 432×594 output pixels even on
+Press **Tab → RX Radio**. The panel stays a compact 432×680 output pixels even on
 1440p/4K displays, with separate **Aquarium** and **RX Radio** tabs; it scales down
 when a smaller window cannot fit it. Existing graphics/fish controls remain in
 the Aquarium tab.
@@ -330,7 +348,7 @@ connection-lifecycle checks. Physical USB/BLE/RX interoperability remains unveri
 | Windows | Owner tested initial prototype at 256 fish on i7-11700F / RTX 3060; v0.1.2 functionally accepted; v0.1.5 projector/multi-window hardware retest pending, physical RX link unverified, no installer |
 | macOS | Opportunistic; untested |
 | 1080p/4K | Arbitrary output dimensions and independent render scale; 1080p tested, 4K not benchmarked |
-| Video wall | Up to eight native OS windows; per-window lower-third sand, three unequal/offset views, lifecycle, saved-layout restore and equal-height two-window reconstruction tested on Linux Xvfb; Windows/mixed-DPI placement unverified, no multi-host sync/bezel calibration |
+| Video wall | Up to eight borderless output windows plus controls; physical panoramic crops, shelves, drag/resize and lifecycle tested on Linux Xvfb; Windows/desktop-environment/mixed-DPI behavior unverified, no multi-host sync/bezel calibration |
 | USB | Actual serial I/O tested via pseudoterminal, physical RX untested |
 | BLE | Concrete adapter + BLE firmware build; packet contract tested, physical link untested |
 | WLAN/TCP | Authenticated bridge over actual loopback sockets tested; physical LAN/radio untested |

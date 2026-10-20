@@ -1,4 +1,4 @@
-"""Native per-window seabed pixels and bubble exits; no radio or live database."""
+"""Native panoramic seabed pixels and bubble exits; no radio or live database."""
 import os
 from pathlib import Path
 import subprocess
@@ -10,6 +10,7 @@ import time
 def exercise(app):
     from panda3d.core import PNMImage, WindowProperties
     from tank.art import floor_mesh
+    from tank.framing import bounds
     from tank.chat import CHANNEL
     from tools.render_smoke import settle
 
@@ -18,7 +19,7 @@ def exercise(app):
         app.taskMgr.step()
     assert len(app.roster) == 12
     app.taskMgr.remove("aquarium-update")
-    app.title.hide();app.subtitle.hide();app.footer.hide()
+    app.footer.hide()
     out = Path(".local");out.mkdir(exist_ok=True)
 
     def capture(view, name=None):
@@ -38,29 +39,31 @@ def exercise(app):
     fixture.hide()
 
     def measure(label):
-        app.decor.hide()
+        app.decor.hide();app.decorations.root.hide();app.shelves.root.hide()
         for model,_,_ in app.models.values():model.hide()
         fixture.show()
         readings = []
+        left,top,full_width,full_height=bounds([v.rectangle() for v in app.views])
         for view in app.views:
             image = capture(view)
             w,h = image.getXSize(),image.getYSize()
             edges = []
             for x in range(w//3,2*w//3,max(1,w//36)):
-                edge = next(y for y in range(h) if image.getXel(x,y)[0] > .7)
+                edge = next((y for y in range(h) if image.getXel(x,y)[0] > .7),h)
                 edges.append(edge/h)
-            assert all(abs(edge-2/3) < .015 for edge in edges),(label,view.view_id,edges)
+            expected=max(0,min(1,(top+full_height*2/3-view.rectangle()[1])/h))
+            assert all(abs(edge-expected) < .025 for edge in edges),(label,view.view_id,edges,expected)
             readings.append(f"{w}x{h}: {min(edges):.4f}..{max(edges):.4f}")
-        fixture.hide();app.decor.show()
+        fixture.hide();app.decor.show();app.decorations.root.show();app.shelves.root.show()
         for model,_,_ in app.models.values():model.show()
         print(f"PASS sand pixels {label}: "+", ".join(readings),flush=True)
 
     measure("single")
     props=WindowProperties();props.setSize(720,1280)
-    app.win.requestProperties(props);settle(app);measure("single portrait")
+    app.aquarium_window.requestProperties(props);settle(app);measure("single portrait")
     capture(app.views[0],"v019-framing-portrait.png")
     props=WindowProperties();props.setSize(1280,720)
-    app.win.requestProperties(props);settle(app)
+    app.aquarium_window.requestProperties(props);settle(app)
     second = app.add_window((1280,260,960,540))
     third = app.add_window((2260,0,720,1280))
     settle(app)
@@ -156,7 +159,7 @@ def exercise(app):
     app.chat.update(0)
     chat=app.chat.active[0];chat["x"]=0
     app.chat.update(10)
-    for node in (app.title,app.subtitle,app.footer):node.show()
+    app.footer.show()
     capture(app.views[0],"v019-framing.png")
 
 

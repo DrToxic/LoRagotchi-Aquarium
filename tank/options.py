@@ -9,10 +9,11 @@ from .connection import ConnectionProfile
 from .settings import PRESETS
 from .deadzone_panel import DeadzonePanel
 from .text import display_text
+from .decoration_panel import DecorationPanel
 
 
 class OptionsPanel:
-    WIDTH, HEIGHT = 432, 594
+    WIDTH, HEIGHT = 432, 680
     TYPES = {'USB serial': 'serial', 'Bluetooth LE': 'ble', 'Network bridge': 'tcp'}
 
     def __init__(self, app):
@@ -29,17 +30,18 @@ class OptionsPanel:
         configure_overlay_bins()
         self.root.setBin('projector-controls',0,100)
         self.label(self.root,'TANK CONTROLS',18,29,17)
-        self.button(self.root,'×',389,25,25,app.toggle_panel)
-        self.tabs = {
-            'Aquarium': self.button(self.root,'Aquarium',18,66,126,lambda:self.page('Aquarium')),
-            'RX Radio': self.button(self.root,'RX Radio',153,66,126,lambda:self.page('RX Radio')),
-            'Deadzones': self.button(self.root,'Deadzones',288,66,126,lambda:self.page('Deadzones')),
-        }
+        self.button(self.root,'–',389,25,25,app.toggle_panel)
+        self.tabs = {name:self.button(self.root,name,18+i*101,66,93,lambda n=name:self.page(n))
+                     for i,name in enumerate(('Aquarium','RX Radio','Deadzones','Decorations'))}
+        for button in self.tabs.values():button["text_scale"]=12
         self.pages = {name:DirectFrame(parent=self.root,frameColor=(0,0,0,0)) for name in self.tabs}
         self.build_aquarium(self.pages['Aquarium'])
         self.build_radio(self.pages['RX Radio'])
         self.deadzones=DeadzonePanel(self,self.pages['Deadzones'])
-        self.page('Aquarium'); self.resize(); self.root.hide()
+        self.decorations=DecorationPanel(self,self.pages['Decorations'])
+        app.footer=self.label(self.root,'Starting aquarium…',18,621,12,396)
+        self.label(self.root,'Drag any aquarium to move; drag its edges to resize.\nTab brings controls here. Esc closes that aquarium.',18,655,12,396)
+        self.page('Aquarium'); self.resize()
 
     def label(self,parent,text,x,y,size=14,wrap=None):
         kwargs = dict(parent=parent,text=text,text_align=TextNode.ALeft,text_scale=size,
@@ -102,7 +104,7 @@ class OptionsPanel:
         self.button(parent,'Names [N]',288,416,126,a.toggle_names)
         a.end_button=self.button(parent,'End display session',18,464,396,a.end_session)
         a.message_label=self.label(parent,'Inbox: no messages',18,505,12,392)
-        self.label(parent,'Copies stay after originals return.  Tab closes controls.',18,576,12)
+        self.label(parent,'Copies stay after originals return. Closing controls quits.',18,576,12)
         a.clear_confirm=0; a.scale_label_update()
 
     def build_radio(self,parent):

@@ -26,7 +26,7 @@ def exercise(app):
         while not predicate() and time.monotonic()<deadline:app.taskMgr.step()
         assert predicate()
     wait_for(lambda:len(app.roster)==12)
-    app.toggle_panel()
+    app.show_controls()
     assert app.panel_visible
     Path('.local').mkdir(exist_ok=True)
     for width,height in ((1280,720),(2560,1440),(3840,2160),(800,450)):
@@ -39,7 +39,7 @@ def exercise(app):
         assert controls.HEIGHT*scale<=height-24+.01
         controls.page('Aquarium');app.graphicsEngine.renderFrame()
         assert app.win.saveScreenshot(f'.local/v013-options-{width}.png')
-    print('PASS compact panel fixed at 432x594px on 720p/1440p/4K; fits smaller windows',flush=True)
+    print('PASS compact panel fixed at 432x680px on 720p/1440p/4K; fits smaller windows',flush=True)
     props=WindowProperties();props.setSize(1280,720);app.win.requestProperties(props)
     for _ in range(4):app.taskMgr.step()
     app.on_window(app.win);controls.resize();controls.page('RX Radio')

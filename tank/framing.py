@@ -1,4 +1,4 @@
-"""Shared water coordinates, with the seabed anchored within each window."""
+"""Physical desktop panorama; sand is anchored in the combined water frustum."""
 import math
 
 from panda3d.core import Point2, Point3
@@ -19,18 +19,6 @@ def regions(rectangles):
     return tuple((2*(x-left)/width-1, 2*(x+w-left)/width-1,
                   1-2*(y+h-top)/height, 1-2*(y-top)/height)
                  for x, y, w, h in rectangles)
-
-
-def water_rectangles(rectangles):
-    """Keep horizontal spans/gaps, aligning each view at its own sand line.
-
-    Actual desktop rectangles still own masks, UI and saved window placement.
-    The water has a separate vertical coordinate: moving a window up/down must
-    not reveal a tank with no floor, or one filled almost entirely with sand.
-    """
-    height = max(h for x, y, w, h in rectangles)
-    return [(x, (height-h)*(1-SAND_FRACTION), w, h)
-            for x, y, w, h in rectangles]
 
 
 def aim_at_sand(camera, render, lens):
