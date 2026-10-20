@@ -47,6 +47,7 @@ class Swimmer:
         self.outline = 1.75*FISH_SCALES[stage]
         self.parked = False
         self.replan_wait = 0.
+        self.arriving = False
 
 
 class Simulation:
@@ -205,6 +206,11 @@ class Simulation:
         previous={key:(s.x,s.y,s.z) for key,s in self.swimmers.items()}
         for key, s in self.swimmers.items():
             if s.parked:
+                velocities[key]=(0.,0.,0.);continue
+            if s.arriving:
+                # Reserve the collision-free landing point while the renderer
+                # brings the fish down from above. No invisible cruising body.
+                s.phase+=dt*s.tail_rate
                 velocities[key]=(0.,0.,0.);continue
             s.remaining -= dt
             s.replan_wait -= dt

@@ -1,4 +1,4 @@
-# LoRagotchi-Aquarium · v0.1.10
+# LoRagotchi-Aquarium · v0.1.11
 
 A native **Python + Panda3D** aquarium for shared LoRagotchi fish. Real 3D fish,
 independent cruise/glide swimming, animated tails/turns, original procedural scenery, adjustable graphics, durable
@@ -90,6 +90,32 @@ messages, connection status and discovered device names.
 v0.1.7 fixes a Windows-only crash in the v0.1.6 emoji coverage check. Existing
 collections/settings remain compatible; no database reset or firmware update is
 needed. See [Windows Unicode regression checks](docs/TESTING-v0.1.7.md).
+
+### Fish arrivals and departures (v0.1.11)
+
+Fish enter from above, settle into open water and begin their normal swimming.
+Removing a copy chooses a random, family-friendly exit: a toothless cartoon shark,
+a net, a water bag, an open cage or a lift-out glass bowl. Containers descend;
+the passenger swims in, then the carrier lifts it beyond the top border.
+
+**A refreshed fish exits with its old appearance, then re-enters with its latest
+snapshot.** Repeated updates during an exit coalesce; updates during arrival wait
+for that arrival to finish. Identical roster refreshes do not replay animations.
+A removal during an update cancels its pending re-entry. Radio RETURN messages
+still retain the aquarium copy and do not trigger an exit.
+
+The settings window's **Animations** tab enables/disables animations and chooses
+the random pickup styles. With every style unchecked, departing fish simply swim
+up and out. Choices survive restarts and graphics presets. At most four pickups
+run together; additional departures keep swimming while queued. End display
+session hides copies in storage immediately, but their visible departures drain
+through this queue. Switching animation off finishes all visual transitions
+immediately. Closing the app never waits for an animation.
+
+All actors share the panoramic world and projector masks. The temporary models
+live in `tank/assets/transitions/`; editable original geometry is in
+`tank/transition_art.py`. No runtime dependencies, database migration or firmware
+update are needed. See [v0.1.11 testing notes](docs/TESTING-v0.1.11.md).
 
 ### Floating channel chat (v0.1.8)
 

@@ -21,6 +21,7 @@ from .chat import ChatBubbles
 from .bubbles import AirBubbles
 from .decorations import DecorationLibrary
 from .shelves import SandShelves
+from .transitions import FishTransitions
 
 class Aquarium(ShowBase):
     def __init__(self,args):
@@ -44,6 +45,7 @@ class Aquarium(ShowBase):
         self.sim=Simulation();self.models={};self.roster=[];self.inbox=[];self.status="Starting aquarium…"
         self.selected=0;self.show_names=False;self.panel_visible=True;self.start=time.monotonic();self.screenshot_done=False
         self.scene=self.render.attachNewNode("aquarium");self.scene.setTwoSided(True)
+        self.transitions=FishTransitions(self);self._model_snapshots={}
         ambient=AmbientLight("blue-water-ambient");ambient.setColor((.63,.71,.73,1));self.ambient=self.render.attachNewNode(ambient)
         sun=DirectionalLight("surface-light");sun.setColor((.95,.95,.82,1));self.sun=self.render.attachNewNode(sun);self.sun.setHpr(-35,-65,0)
         fill=DirectionalLight("soft-fill");fill.setColor((.15,.30,.34,1));self.fill=self.render.attachNewNode(fill);self.fill.setHpr(130,-20,0)
@@ -101,7 +103,9 @@ class Aquarium(ShowBase):
         if self.settings.lighting:
             self.render.setLight(self.ambient);self.render.setLight(self.sun);self.render.setLight(self.fill)
         for model,_,_ in self.models.values():model.removeNode()
-        self.models={};self.sync_models()
+        # Rebuild the currently shown snapshots, including queued old versions.
+        # Reconciliation needs those nodes to capture a departure's old pose.
+        self.models={};self._model_snapshots={};self._sync_fish_nodes()
         ClockObject.getGlobalClock().setMode(ClockObject.MLimited);ClockObject.getGlobalClock().setFrameRate(self.settings.fps)
         self.setup_output()
 
@@ -171,7 +175,7 @@ class Aquarium(ShowBase):
             if window is not None:self.closeWindow(window)
             self.status="Additional window could not open";return
         view=AquariumView(self,window);view.view_id=view_id
-        self.views.append(view);view.names.sync(self.roster)
+        self.views.append(view);view.names.sync(self.transitions.shown.values())
         view.input=self.setupMouse(window,fMultiWin=True)
         prefix=f'view-{view_id}-';view.input.node().setPrefix(prefix)
         for key,callback,args in (
@@ -224,14 +228,24 @@ class Aquarium(ShowBase):
         return True
 
     def sync_models(self):
-        owners={f.owner for f in self.roster}
+        self.transitions.reconcile(self.roster)
+        self._sync_fish_nodes()
+
+    def _sync_fish_nodes(self):
+        visible=list(self.transitions.shown.values())
+        owners={f.owner for f in visible}
         for key in list(self.models):
-            if key not in owners:self.models.pop(key)[0].removeNode()
-        for fish in self.roster:
+            if key not in owners:
+                self.models.pop(key)[0].removeNode();self._model_snapshots.pop(key,None)
+        for fish in visible:
+            if fish.owner in self.models and self._model_snapshots.get(fish.owner)!=fish:
+                self.models.pop(fish.owner)[0].removeNode()
             if fish.owner not in self.models:
                 model,tail,fins=fish_model(fish,self.settings.detail);model.reparentTo(self.scene);self.models[fish.owner]=(model,tail,fins)
-        self.sim.roster(self.roster)
-        for view in self.views:view.names.sync(self.roster)
+                self._model_snapshots[fish.owner]=fish
+                if fish.owner in self.transitions.arrivals:model.hide()
+        self.sim.roster(self.transitions.swimming())
+        for view in self.views:view.names.sync(visible)
 
     def build_panel(self):
         self.controls=OptionsPanel(self)
@@ -298,6 +312,7 @@ class Aquarium(ShowBase):
         from panda3d.core import Point2
         point=Point2()
         for i,fish in enumerate(self.roster):
+            if fish.owner not in self.models:continue
             node=self.models[fish.owner][0]
             if node.isHidden():continue
             if view.lens.project(self.camera.getRelativePoint(self.render,node.getPos(self.render)),point):
@@ -331,6 +346,17 @@ class Aquarium(ShowBase):
             else:widget['text']=rendered
             self._ui_text[key]=text
 
+    def update_fish(self,dt):
+        poses=self.sim.step(dt)
+        for key,pose in poses.items():
+            model,tail,fins=self.models[key]
+            if self.sim.swimmers[key].parked != model.isHidden():
+                model.hide() if self.sim.swimmers[key].parked else model.show()
+            model.setPos(pose.x,pose.y,pose.z);model.setHpr(pose.heading,pose.bank,pose.pitch)
+            tail.setH(math.sin(pose.phase)*22*pose.speed)
+            for i,fin in enumerate(fins):fin.setH(math.sin(pose.phase*.65+i)*12)
+        self.transitions.update(dt)
+
     def update(self,task):
         dt=min(ClockObject.getGlobalClock().getDt(),.1)
         self.window_drag.update()
@@ -340,9 +366,10 @@ class Aquarium(ShowBase):
                 kind=event.get("kind")
                 if kind=="roster":
                     new=event["fish"]
-                    previous={f.owner:f for f in self.roster}
-                    for f in new:
-                        if previous.get(f.owner)!=f and f.owner in self.models:self.models.pop(f.owner)[0].removeNode()
+                    if event.get("mode",self.controls.mode)!=self.controls.mode:
+                        # Switching demo/replay to live never leaves synthetic
+                        # fish performing departures over the live collection.
+                        self.transitions.destroy();self.transitions=FishTransitions(self)
                     self.roster=new;self.sync_models()
                     self.controls.mode=event.get("mode",self.controls.mode)
                 elif kind=="connection":
@@ -354,14 +381,7 @@ class Aquarium(ShowBase):
                     self.chat.accept(event)
             else:
                 if event.kind=="return_status":self.status=f"RX return {event.status} · snapshot kept"
-        poses=self.sim.step(dt);t=self.sim.time
-        for key,pose in poses.items():
-            model,tail,fins=self.models[key]
-            if self.sim.swimmers[key].parked != model.isHidden():
-                model.hide() if self.sim.swimmers[key].parked else model.show()
-            model.setPos(pose.x,pose.y,pose.z);model.setHpr(pose.heading,pose.bank,pose.pitch)
-            tail.setH(math.sin(pose.phase)*22*pose.speed)
-            for i,fin in enumerate(fins):fin.setH(math.sin(pose.phase*.65+i)*12)
+        self.update_fish(dt);t=self.sim.time
         for node,phase in self.plants:node.setR(math.sin(t*.45+phase)*3)
         self.bubbles.update(dt)
         if self.caustic:self.caustic.setTexOffset(TextureStage.getDefault(),t*.009,t*.006)
@@ -369,6 +389,8 @@ class Aquarium(ShowBase):
         # Static text changes on data changes, not on every rendered frame.
         waiting=sum(s.parked for s in self.sim.swimmers.values())
         space_note=f" · {waiting} waiting for swim space" if waiting else ""
+        moving=len(self.transitions.arrivals)+len(self.transitions.departures)
+        if moving:space_note+=f" · {moving} in transition"
         self.set_ui_text(self.footer,f"{len(self.roster)} shared fish{space_note}\n{self.status}")
         now=time.monotonic()
         if self.panel_visible and now>=self._next_ui_update:
@@ -395,6 +417,7 @@ class Aquarium(ShowBase):
         if hasattr(self,"service"):self.service.close()
         if hasattr(self,"window_drag"):self.window_drag.close()
         if hasattr(self,"chat"):self.chat.destroy()
+        if hasattr(self,"transitions"):self.transitions.destroy()
         self._destroying=True
         for view in list(getattr(self,"views",[])):self.close_view(view)
         self.views=[]

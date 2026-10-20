@@ -8,6 +8,7 @@ import time
 
 
 def exercise(app):
+    app.settings.fish_animations=False;app.sync_models()
     from dataclasses import replace
     from panda3d.core import PNMImage, TextNode
     from direct.gui.OnscreenText import OnscreenText

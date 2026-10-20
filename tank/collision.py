@@ -39,6 +39,7 @@ class CollisionWorld:
         self.statics = []
         self.probes = {}
         self.groups = {}
+        self.revision = 0
         for axis, (low, high) in enumerate(TANK_LIMITS):
             for sign, boundary in ((1, low), (-1, high)):
                 normal = [0, 0, 0]; normal[axis] = sign
@@ -65,6 +66,7 @@ class CollisionWorld:
         Entries are (world centre, full size, world HPR). The artwork and these
         proxies share transforms; removing an object removes its collisions too.
         """
+        self.revision += 1
         for path in self.groups.pop(group, []):
             self.world.removeRigidBody(path.node())
             self.statics.remove(path)
@@ -96,7 +98,7 @@ class CollisionWorld:
         self.world.removeRigidBody(path.node())
         path.removeNode()
 
-    def clear_at(self, stage, position, heading=0., ignore=None, static_only=False):
+    def clear_at(self, stage, position, heading=0., ignore=None, static_only=False, ignore_walls=False):
         if stage not in self.probes:
             radius, length = body_dimensions(stage)
             node = BulletRigidBodyNode('placement-probe')
@@ -107,6 +109,7 @@ class CollisionWorld:
         result = self.world.contactTest(probe.node())
         for contact in result.getContacts():
             other = contact.getNode1() if contact.getNode0() == probe.node() else contact.getNode0()
+            if ignore_walls and other.getName()=="tank-wall":continue
             if other.getName() == ignore or (static_only and other.getMass() > 0):
                 continue
             # Placement/anticipation require clearance, not just a negative

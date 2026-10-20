@@ -10,6 +10,7 @@ from .settings import PRESETS
 from .deadzone_panel import DeadzonePanel
 from .text import display_text
 from .decoration_panel import DecorationPanel
+from .animation_panel import AnimationPanel
 
 
 class OptionsPanel:
@@ -31,14 +32,15 @@ class OptionsPanel:
         self.root.setBin('projector-controls',0,100)
         self.label(self.root,'TANK CONTROLS',18,29,17)
         self.button(self.root,'–',389,25,25,app.toggle_panel)
-        self.tabs = {name:self.button(self.root,name,18+i*101,66,93,lambda n=name:self.page(n))
-                     for i,name in enumerate(('Aquarium','RX Radio','Deadzones','Decorations'))}
-        for button in self.tabs.values():button["text_scale"]=12
+        self.tabs = {name:self.button(self.root,name,18+i*81,66,78,lambda n=name:self.page(n))
+                     for i,name in enumerate(('Aquarium','RX Radio','Deadzones','Decorations','Animations'))}
+        for button in self.tabs.values():button["text_scale"]=11
         self.pages = {name:DirectFrame(parent=self.root,frameColor=(0,0,0,0)) for name in self.tabs}
         self.build_aquarium(self.pages['Aquarium'])
         self.build_radio(self.pages['RX Radio'])
         self.deadzones=DeadzonePanel(self,self.pages['Deadzones'])
         self.decorations=DecorationPanel(self,self.pages['Decorations'])
+        self.animations=AnimationPanel(self,self.pages['Animations'])
         app.footer=self.label(self.root,'Starting aquarium…',18,621,12,396)
         self.label(self.root,'Drag any aquarium to move; drag its edges to resize.\nTab brings controls here. Esc closes that aquarium.',18,655,12,396)
         self.page('Aquarium'); self.resize()

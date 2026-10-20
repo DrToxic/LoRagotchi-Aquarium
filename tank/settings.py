@@ -22,6 +22,8 @@ class Settings:
     vsync:bool=True
     chat_bubbles:bool=True
     decorations:dict=field(default_factory=dict)
+    fish_animations:bool=True
+    exit_styles:dict=field(default_factory=dict)
     def apply(self,name):
         for k,v in PRESETS[name].items():setattr(self,k,v)
         self.preset=name
@@ -34,5 +36,7 @@ class Settings:
             raw=json.loads(Path(path).read_text());s=cls(**raw)
             if not .25<=s.scale<=2 or not 8<=s.detail<=48 or not 0<=s.plants<=100 or not 0<=s.bubbles<=100 or not 10<=s.fps<=240:raise ValueError()
             if not isinstance(s.decorations,dict) or not all(isinstance(k,str) and isinstance(v,bool) for k,v in s.decorations.items()):raise ValueError()
+            if not isinstance(s.fish_animations,bool):raise ValueError()
+            if not isinstance(s.exit_styles,dict) or not all(isinstance(k,str) and isinstance(v,bool) for k,v in s.exit_styles.items()):raise ValueError()
             return s
         except (OSError,ValueError,TypeError):return cls()

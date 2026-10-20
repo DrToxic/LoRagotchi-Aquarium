@@ -25,6 +25,9 @@ def capture(app, window):
 
 
 def exercise(self):
+    # This suite measures steady-state labels/window lifecycle. Animated
+    # removal/update behavior is exercised separately by transitions_smoke.
+    self.settings.fish_animations=False;self.sync_models()
     expected=self.args.demo
     deadline=time.monotonic()+20
     while len(self.roster)!=expected and time.monotonic()<deadline:self.taskMgr.step()

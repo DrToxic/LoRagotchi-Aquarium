@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 [project]
 name = "loragotchi-community-tank"
-version = "0.1.10"
+version = "0.1.11"
 description = "Native 3D community aquarium and transport-independent LoRagotchi-RX client"
 requires-python = ">=3.10"
 dependencies = ["panda3d==1.10.16", "pyserial==3.5", "bleak>=1.0,<3"]
@@ -19,4 +19,5 @@ testpaths = ["tests"]
 
 [tool.setuptools.package-data]
 tank = ["assets/*.ttf", "assets/*LICENSE.txt", "assets/decorations/*/*.egg",
-        "assets/decorations/*/*.json", "assets/decorations/README.md"]
+        "assets/decorations/*/*.json", "assets/decorations/README.md",
+        "assets/transitions/*.bam", "assets/transitions/README.md"]

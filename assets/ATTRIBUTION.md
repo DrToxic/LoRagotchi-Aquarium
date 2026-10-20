@@ -4,6 +4,10 @@
   caustic textures:** original procedural source in `tank/art.py`, MIT (project
   LICENSE). No SereneScreen artwork, textures, sounds or software was copied.
   All editable source is retained; procedural geometry is built at runtime.
+- **Shark, net, water bag, bowl and cage pickup actors:** original procedural
+  source in `tank/transition_art.py`, MIT (project LICENSE). Generated native
+  models are bundled in `tank/assets/transitions/`; regenerate with
+  `python -m tools.build_transition_assets`. No third-party art.
 - **Liberation Sans Regular:** unmodified font in `tank/assets/`, SIL Open Font
   License 1.1. Copyright Google Corporation / Red Hat, Inc.; full notices in
   `tank/assets/Liberation-LICENSE.txt`. Source: https://github.com/liberationfonts.
