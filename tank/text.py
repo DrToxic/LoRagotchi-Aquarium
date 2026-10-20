@@ -35,11 +35,28 @@ def configure_text():
 @lru_cache(maxsize=4096)
 def _glyph(character):
     primary, emoji = configure_text()
-    if primary.hasCharacter(character):
+    if _has_character(primary, character):
         return character, False
-    if emoji.hasCharacter(character):
+    if _has_character(emoji, character):
         return character, True
     return '?', False
+
+
+def _has_character(probe, character):
+    code = ord(character)
+    if code <= 0xFFFF:
+        # Keep Panda's synthesized accents for BMP text. This binding takes
+        # wchar_t, which is only 16 bits on Windows; never pass it an emoji.
+        return probe.hasCharacter(character)
+    font = probe.getFont()
+    # getGlyph takes an int on every platform. A missing character can still
+    # return a non-null replacement, so compare against a known missing glyph.
+    # U+10FFFF is an unmapped noncharacter in both bundled fonts. Compare glyph
+    # objects, not getCharacter(): aliases can share a cached glyph whose
+    # character field belongs to the first code point requested.
+    missing = font.getGlyph(0x10FFFF)
+    glyph = font.getGlyph(code)
+    return glyph is not None and glyph != missing
 
 
 @lru_cache(maxsize=1024)

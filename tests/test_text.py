@@ -5,15 +5,15 @@ from panda3d.core import NodePath, TextNode, TextAssembler
 from tank.demo import RX, visitors
 from tank.protocol import decode_event, encode_event
 from tank.store import Store
-from tank.text import EMOJI_STYLE, configure_text, display_text
+from tank.text import EMOJI_STYLE, _has_character, configure_text, display_text
 from tank.views import NameLabels
 
 
 def test_reported_glyphs_use_bundled_fallback_without_missing_definitions(capfd):
     primary, emoji = configure_text()
     for character in '🐟🐠🐡🦈☣😀':
-        assert not primary.hasCharacter(character)
-        assert emoji.hasCharacter(character)
+        assert not _has_character(primary, character)
+        assert _has_character(emoji, character)
     source = '🐟 Tank ☣️ / 🐠🐡🦈😀'
     rendered = display_text(source)
     assert EMOJI_STYLE in rendered and '\ufe0f' not in rendered
@@ -24,6 +24,48 @@ def test_reported_glyphs_use_bundled_fallback_without_missing_definitions(capfd)
     assembled.setWtext(rendered)
     assert assembled.getPlainWtext() == source.replace('\ufe0f', '')
     assert 'No definition' not in capfd.readouterr().err
+
+
+def test_non_bmp_names_never_use_windows_wchar_binding(monkeypatch, capfd):
+    import tank.text as text
+
+    class WindowsProbe:
+        def __init__(self, probe):
+            self.probe = probe
+
+        def hasCharacter(self, character):
+            if ord(character) > 0xFFFF:
+                raise TypeError('has_character(TextNode self, unicode char character)')
+            return self.probe.hasCharacter(character)
+
+        def getFont(self):
+            return self.probe.getFont()
+
+    probes = tuple(WindowsProbe(p) for p in configure_text())
+    monkeypatch.setattr(text, 'configure_text', lambda: probes)
+    text._glyph.cache_clear()
+    text.display_text.cache_clear()
+    try:
+        raw = '🐟🐠🐡🦈😀 ☣️ Café \U0010ffff'
+        rendered = text.display_text(raw)
+        node = TextNode('windows-name-proof')
+        node.setText(rendered)
+        assert not node.generate().getBounds().isEmpty()
+        assembled = TextAssembler(node)
+        assembled.setWtext(rendered)
+        assert assembled.getPlainWtext() == '🐟🐠🐡🦈😀 ☣ Café ?'
+        assert 'No definition' not in capfd.readouterr().err
+    finally:
+        text._glyph.cache_clear()
+        text.display_text.cache_clear()
+
+
+def test_non_bmp_missing_glyph_is_not_mistaken_for_supported_text():
+    for probe in configure_text():
+        # Panda returns a printable replacement, not None, for these fonts.
+        assert probe.getFont().getGlyph(0x10FFFF) is not None
+        assert not _has_character(probe, '\U0010ffff')
+        assert not _has_character(probe, '\U0010fffe')
 
 
 def test_display_fallback_handles_unknowns_controls_and_combining_text(capfd):

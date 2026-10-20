@@ -1,4 +1,4 @@
-# LoRagotchi-Aquarium · v0.1.6
+# LoRagotchi-Aquarium · v0.1.7
 
 A native **Python + Panda3D** aquarium for shared LoRagotchi fish. Real 3D fish,
 independent cruise/glide swimming, animated tails/turns, original procedural scenery, adjustable graphics, durable
@@ -79,6 +79,10 @@ individual symbols. Characters outside both fonts display as `?`. This affects
 display only: original Unicode names remain unchanged in radio data and the
 saved collection. The same fallback applies to labels, the selected-fish panel,
 messages, connection status and discovered device names.
+
+v0.1.7 fixes a Windows-only crash in the v0.1.6 emoji coverage check. Existing
+collections/settings remain compatible; no database reset or firmware update is
+needed. See [Windows Unicode regression checks](docs/TESTING-v0.1.7.md).
 
 Each view is a **real, independently movable/resizable OS window**, not a split
 screen. All windows share the same fish and simulation. Their OS-reported client
