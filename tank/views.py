@@ -4,6 +4,7 @@ Panda3D owns OS windows, render targets and text shaping. Scene cameras share th
 same simulation; desktop rectangles (including negative origins) define crops.
 """
 from panda3d.core import CardMaker, NodePath, PerspectiveLens, Point2, TextNode, TransparencyAttrib
+from .text import display_text
 
 
 def desktop_lenses(rectangles):
@@ -55,7 +56,7 @@ class NameLabels:
                 continue
             if name not in self.geometry:
                 text = TextNode('fish-name')
-                text.setText(name)
+                text.setText(display_text(name))
                 text.setAlign(TextNode.ACenter)
                 text.setTextColor(.83, .93, .88, .9)
                 self.geometry[name] = text.generate()

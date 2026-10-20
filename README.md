@@ -1,4 +1,4 @@
-# LoRagotchi-Aquarium · v0.1.3
+# LoRagotchi-Aquarium · v0.1.6
 
 A native **Python + Panda3D** aquarium for shared LoRagotchi fish. Real 3D fish,
 independent cruise/glide swimming, animated tails/turns, original procedural scenery, adjustable graphics, durable
@@ -71,6 +71,14 @@ uv run loragotchi-tank --demo --detail 12 --plants 10 --bubbles 4 --fps 30 --no-
 `Esc`: close panel, then exit. While editing a text field, aquarium shortcuts are
 suspended and `Tab` advances to the next field. End display session asks for a second click; this
 hides display copies and never sends a radio RETURN. New shares can reappear.
+
+Names and incoming text use bundled Liberation Sans plus **Noto Emoji**
+monochrome glyphs, including 🐟 and ☣. No extra system font installation is
+needed. Emoji presentation selectors are ignored; joined emoji may appear as
+individual symbols. Characters outside both fonts display as `?`. This affects
+display only: original Unicode names remain unchanged in radio data and the
+saved collection. The same fallback applies to labels, the selected-fish panel,
+messages, connection status and discovered device names.
 
 Each view is a **real, independently movable/resizable OS window**, not a split
 screen. All windows share the same fish and simulation. Their OS-reported client

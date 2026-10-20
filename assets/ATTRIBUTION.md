@@ -8,6 +8,12 @@
   License 1.1. Copyright Google Corporation / Red Hat, Inc.; full notices in
   `tank/assets/Liberation-LICENSE.txt`. Source: https://github.com/liberationfonts.
   Copied from the host's Debian fonts-liberation package.
+- **Noto Emoji:** unmodified monochrome outline font, SIL Open Font License 1.1,
+  Copyright 2013 Google LLC. `tank/assets/NotoEmoji.ttf` is the upstream
+  `NotoEmoji[wght].ttf` with only the filename shortened; full license in
+  `tank/assets/NotoEmoji-LICENSE.txt`.
+  [Pinned Google Fonts source](https://github.com/google/fonts/tree/8b0a1d0f5983c89bc2b93f1b5fb55f9e252744b5/ofl/notoemoji).
+  SHA256: `de6c18832938afc99caf132b39d6a30a19bac7f2e812e28db2535b4608d27551`.
 - **Panda3D 1.10.16:** BSD licence, https://github.com/panda3d/panda3d.
 - **pyserial 3.5:** BSD licence, https://github.com/pyserial/pyserial.
 - **Bleak:** MIT licence, https://github.com/hbldh/bleak.

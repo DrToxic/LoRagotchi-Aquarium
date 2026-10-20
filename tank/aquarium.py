@@ -15,6 +15,7 @@ from .service import Service
 from .options import OptionsPanel
 from .deadzones import DisplayProfile, MAX_WINDOWS
 from .projection import blackout_geometry
+from .text import configure_text, display_text
 
 class Aquarium(ShowBase):
     def __init__(self,args):
@@ -33,8 +34,7 @@ class Aquarium(ShowBase):
         if args.no_caustics:self.settings.caustics=False
         if args.no_vsync:self.settings.vsync=False
         loadPrcFileData("tank",f"window-title LoRagotchi Community Tank\nwin-size {args.width} {args.height}\nfullscreen false\nsync-video {str(self.settings.vsync).lower()}\naudio-library-name null\nframebuffer-multisample 0\ntextures-power-2 none\nnotify-level warning\n")
-        font=Path(__file__).resolve().parent/"assets"/"LiberationSans-Regular.ttf"
-        loadPrcFileData("font",f"text-default-font {font.as_posix()}\n")
+        configure_text()
         super().__init__();self.disableMouse();self.setBackgroundColor(.012,.075,.115,1)
         self.sim=Simulation();self.models={};self.roster=[];self.inbox=[];self.status="Starting aquarium…"
         self.selected=0;self.show_names=False;self.panel_visible=False;self.start=time.monotonic();self.screenshot_done=False
@@ -286,8 +286,9 @@ class Aquarium(ShowBase):
     def set_ui_text(self,widget,text):
         key=id(widget)
         if self._ui_text.get(key)!=text:
-            if isinstance(widget,OnscreenText):widget.setText(text)
-            else:widget['text']=text
+            rendered=display_text(text)
+            if isinstance(widget,OnscreenText):widget.setText(rendered)
+            else:widget['text']=rendered
             self._ui_text[key]=text
 
     def update(self,task):

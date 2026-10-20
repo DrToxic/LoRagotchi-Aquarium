@@ -8,6 +8,7 @@ from direct.gui.DirectGui import DirectFrame, DirectLabel, DirectButton, DirectO
 from .connection import ConnectionProfile
 from .settings import PRESETS
 from .deadzone_panel import DeadzonePanel
+from .text import display_text
 
 
 class OptionsPanel:
@@ -167,10 +168,10 @@ class OptionsPanel:
         self.scan_pending=False;self.enabled(self.scan_button,True)
         if event['transport']!=self.profile.transport:return
         # Bound the native popup to the panel; manual entry remains available.
-        self.devices={f'{i+1}. {label[:48]}':address for i,(address,label) in enumerate(event['devices'][:12])}
+        self.devices={display_text(f'{i+1}. {label[:48]}'):address for i,(address,label) in enumerate(event['devices'][:12])}
         items=['Choose a detected device']+list(self.devices) if self.devices else ['No devices found']
         self.device_menu['items']=items;self.device_menu.set(0,fCommand=0)
-        self.scan_note['text']=event.get('error') or (f'{len(self.devices)} found. Select one, then Connect.' if self.devices else 'No devices found. You can still enter the address above.')
+        self.scan_note['text']=display_text(event.get('error') or (f'{len(self.devices)} found. Select one, then Connect.' if self.devices else 'No devices found. You can still enter the address above.'))
         if len(event['devices'])>12:self.scan_note['text']=f'{len(event["devices"])} found; showing 12. Enter another address above.'
 
     def connect(self):
@@ -181,7 +182,7 @@ class OptionsPanel:
             from dataclasses import replace
             self.app.service.connect(replace(self.profile))
             self.state='connecting';self.connection_label['text']='Connecting…'
-        except ValueError as exc:self.connection_label['text']=str(exc)
+        except ValueError as exc:self.connection_label['text']=display_text(str(exc))
 
     def disconnect(self):
         self.app.service.disconnect();self.state='disconnecting'
@@ -189,7 +190,7 @@ class OptionsPanel:
 
     def on_connection(self,event):
         self.state=event.get('state','idle')
-        self.connection_label['text']=textwrap.fill(event['text'],width=54,max_lines=5,placeholder='…')
+        self.connection_label['text']=display_text(textwrap.fill(event['text'],width=54,max_lines=5,placeholder='…'))
         self.refresh()
 
     def refresh(self):
