@@ -1,7 +1,8 @@
 import secrets
 import struct
 import time
-from .protocol import MAGIC, ProtocolError, decode_event, mesh_message
+from collections import deque
+from .protocol import MAGIC, ProtocolError, channel_info, decode_event, mesh_message
 
 class Client:
     def __init__(self,transport,store,on_event=lambda e:None,token=None):
@@ -9,6 +10,8 @@ class Client:
         self.token=token or secrets.randbits(32) or 1
         self.rx=None
         self.messages=[]
+        self.channel_names={}
+        self.pending_messages=deque(maxlen=100)
 
     def command(self,op,args=b""):
         payload=MAGIC+bytes([op])+struct.pack("<I",self.token)+args
@@ -26,6 +29,36 @@ class Client:
     def _ordinary(self,packet):
         msg=mesh_message(packet)
         if msg:
+            msg["rx"]=self.rx
+            # Never nest a companion command inside an in-flight LRX request.
+            self.pending_messages.append(msg)
+
+    def _channel_name(self,index):
+        cached=self.channel_names.get(index)
+        if cached and time.monotonic()<cached[1]:return cached[0]
+        self.transport.send(bytes([31,index]))  # CMD_GET_CHANNEL; no radio writes.
+        end=time.monotonic()+2
+        while time.monotonic()<end:
+            packet=self.transport.receive(max(.1,end-time.monotonic()))
+            if packet[:1]==b"\x12":
+                found,name=channel_info(packet)
+                if found!=index:raise ProtocolError("Mismatched channel-info response")
+                self.channel_names[index]=(name,time.monotonic()+30)
+                return name
+            if packet[:1]==b"\x01":  # Unsupported/missing channel: fail closed.
+                self.channel_names[index]=("",time.monotonic()+30)
+                return ""
+            self._ordinary(packet)
+        raise TimeoutError("Channel lookup timed out")
+
+    def _flush_messages(self):
+        # Bounded drain; asynchronous messages arriving during lookups wait
+        # until the next poll. The cached table belongs to this connection only.
+        for _ in range(len(self.pending_messages)):
+            msg=self.pending_messages.popleft()
+            msg["rx"]=self.rx
+            if "channel_index" in msg:
+                msg["channel_name"]=self._channel_name(msg["channel_index"])
             self.messages.append(msg);self.messages=self.messages[-100:];self.on_event(msg)
 
     def connect(self):
@@ -69,7 +102,7 @@ class Client:
         while time.monotonic()<end:
             packet=self.transport.receive(max(.1,end-time.monotonic()))
             if packet[:1] in (b"\x07",b"\x08",b"\x10",b"\x11",b"\x0a"):
-                self._ordinary(packet);return
+                self._ordinary(packet);self._flush_messages();return
             self._ordinary(packet)
         raise TimeoutError("Mesh message poll timed out")
 

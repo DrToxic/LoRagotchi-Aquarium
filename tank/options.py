@@ -93,6 +93,8 @@ class OptionsPanel:
         self.button(parent,'Fullscreen [F]',150,240,126,a.fullscreen)
         self.button(parent,'Add window [V]',288,240,126,a.add_window)
         a.output_label=self.label(parent,'',18,272,12)
+        self.chat_button=self.button(parent,'Channel chat: '+('on' if a.settings.chat_bubbles else 'off'),
+                                     18,315,396,a.toggle_chat)
         self.label(parent,'DISPLAYED FISH',18,336,12)
         a.fish_label=self.label(parent,'',18,363,14,392)
         self.button(parent,'Next fish',18,416,120,a.select_next)

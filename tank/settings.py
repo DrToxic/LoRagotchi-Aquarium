@@ -20,6 +20,7 @@ class Settings:
     caustics:bool=True
     fps:int=45
     vsync:bool=True
+    chat_bubbles:bool=True
     def apply(self,name):
         for k,v in PRESETS[name].items():setattr(self,k,v)
         self.preset=name

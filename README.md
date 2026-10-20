@@ -1,4 +1,4 @@
-# LoRagotchi-Aquarium · v0.1.7
+# LoRagotchi-Aquarium · v0.1.8
 
 A native **Python + Panda3D** aquarium for shared LoRagotchi fish. Real 3D fish,
 independent cruise/glide swimming, animated tails/turns, original procedural scenery, adjustable graphics, durable
@@ -83,6 +83,37 @@ messages, connection status and discovered device names.
 v0.1.7 fixes a Windows-only crash in the v0.1.6 emoji coverage check. Existing
 collections/settings remain compatible; no database reset or firmware update is
 needed. See [Windows Unicode regression checks](docs/TESTING-v0.1.7.md).
+
+### Floating channel chat (v0.1.8)
+
+Plain messages received by RX on **`#loragotchi-DX`** emerge from behind the sand
+in rounded chat bubbles, drift upward, and leave the top of the aquarium.
+Sender names and Unicode/emoji use the existing bundled fonts. Bubbles live in
+the shared 3D world: sand/reef can occlude them, windows crop the same bubble,
+and projector blackouts cover them.
+
+**Tab → Aquarium → Channel chat: on/off** controls the effect and remembers your
+choice. It is on by default. Disabling it clears visible/queued chat; it does not
+disconnect RX or alter the fish collection.
+
+- RX must already have that hashtag channel configured. The aquarium reads its
+  channel name; it does not join channels or change keys/settings on the radio.
+  Name matching is case-insensitive and never assumes a fixed channel slot.
+- Direct messages, other channels, non-plain messages and `LFG1` fish-transfer
+  traffic never become bubbles. Ordinary inbox behavior remains available.
+- Chat is ephemeral: up to four visible bubbles, 24 waiting messages, five
+  seconds between launches; queued messages older than two minutes expire.
+  Duplicate receiver/channel/timestamp/text combinations are suppressed.
+  Chat is not saved as fish or written into the collection database.
+- USB and the authenticated bridge support the read-only channel lookup.
+  **Update the bridge host to v0.1.8 too** if using TCP. BLE retains the existing
+  requirement for a confirmed MTU of at least 179 for ordinary chat messages;
+  small-MTU fish transfers are unaffected.
+
+No new dependency or RX firmware update is required for the existing
+channel-message protocol. Synthetic protocol, serial/TCP and rendered pixel
+checks are documented in [v0.1.8 testing notes](docs/TESTING-v0.1.8.md).
+Physical radio/Windows validation of this new feature remains pending.
 
 Each view is a **real, independently movable/resizable OS window**, not a split
 screen. All windows share the same fish and simulation. Their OS-reported client

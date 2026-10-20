@@ -105,5 +105,10 @@ replay stores are isolated from live by default.
 
 Ordinary MeshCore direct/channel messages use the original offline message queue
 and sync command 10, decoded separately. They are not disguised fish events.
-No automatic replies, public-screen chat overlay or broad messenger is included.
+v0.1.8 adds an ephemeral public-screen overlay only for plain messages whose
+channel name resolves to `#loragotchi-DX` (case-insensitive). Command 31 reads the
+channel index's metadata; response 18 contains index, 32-byte name and 16-byte
+secret. Only the name is retained, cached for 30 seconds per connection. The
+secret is neither retained nor logged. The bridge permits this exact two-byte
+read command, not channel writes. No automatic replies or message sending.
 BLE normal inbox is skipped when its large-message MTU cannot be established.

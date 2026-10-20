@@ -11,7 +11,7 @@ from pathlib import Path
 import secrets
 import socket
 import time
-from .protocol import MAGIC, StreamFrames, frame
+from .protocol import StreamFrames, frame, bridge_command_allowed
 from .transport import open_transport, recv_exact
 
 
@@ -36,7 +36,7 @@ def relay(sock,radio,token,stop=None):
             for payload in parser.feed(data):
                 # Read-only ordinary inbox plus the RX extension; never arbitrary
                 # companion commands (private keys, RF settings, reboot, etc.).
-                if payload!=b"\x0a" and not payload.startswith(MAGIC):
+                if not bridge_command_allowed(payload):
                     raise PermissionError("Command is not permitted through this bridge")
                 radio.send(payload)
         except socket.timeout:pass
@@ -80,7 +80,7 @@ def main():
                             data=sock.recv(1024)
                             if not data:break
                             for payload in parser_stream.feed(data):
-                                if payload!=b"\x0a" and not payload.startswith(MAGIC):raise PermissionError("Command not allowed")
+                                if not bridge_command_allowed(payload):raise PermissionError("Command not allowed")
                                 radio.send(payload)
                         except socket.timeout:pass
                         try:sock.sendall(frame(radio.receive(.05),b">"))

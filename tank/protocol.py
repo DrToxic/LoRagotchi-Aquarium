@@ -122,6 +122,22 @@ def mesh_message(payload):
         return {"kind": "mesh", "route": "direct", "sender_prefix": key,
                 "text": payload[start+12:].decode("utf-8", errors="replace")[:160]}
     if code in (8, 17) and len(payload) >= start+7:
+        text_type = payload[start+2]
         return {"kind": "mesh", "route": f"channel {payload[start]}",
+                "channel_index": payload[start], "text_type": text_type,
+                "timestamp": struct.unpack_from("<I", payload, start+3)[0],
                 "text": payload[start+7:].decode("utf-8", errors="replace")[:160]}
     return None
+
+
+def channel_info(payload):
+    """Read the name only; do not retain/log the secret included by MeshCore."""
+    if len(payload) != 50 or payload[0] != 18:
+        raise ProtocolError("Invalid channel-info response")
+    return payload[1], payload[2:34].split(b"\0", 1)[0].decode("utf-8", errors="replace")
+
+
+def bridge_command_allowed(payload):
+    """Only the RX extension and exact, read-only inbox/channel queries."""
+    return (payload == b"\x0a" or payload.startswith(MAGIC)
+            or len(payload) == 2 and payload[0] == 31)

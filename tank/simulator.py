@@ -1,16 +1,27 @@
 """PC handoff simulator only, not a firmware simulator or physical-radio proof."""
 import queue
 import struct
+from collections import deque
 from .protocol import MAGIC, encode_event
 from .demo import events, RX
 
 class SimulatedRadio:
-    def __init__(self,count=8):
+    def __init__(self,count=8,channels=None,messages=()):
         self.events={e.event_id:encode_event(e) for e in events(count)}
         self.acked=set();self.replies=queue.Queue();self.lease=None
         self.fail_after_save=False
+        self.channels=channels or {}
+        self.inbox=deque(messages)
+        self.commands=[]
     def send(self,payload):
-        if payload==b"\x0a":self.replies.put(b"\x0a");return
+        self.commands.append(payload)
+        if payload==b"\x0a":
+            self.replies.put(self.inbox.popleft() if self.inbox else b"\x0a");return
+        if len(payload)==2 and payload[0]==31:
+            name=self.channels.get(payload[1])
+            response=(bytes([18,payload[1]])+name.encode()[:31].ljust(32,b"\0")+bytes(16)
+                      if name is not None else b"\x01\x02")
+            self.replies.put(response);return
         if len(payload)<9 or not payload.startswith(MAGIC):raise ValueError("Invalid simulator command")
         op,token=payload[4],payload[5:9]
         header=MAGIC+bytes([op])

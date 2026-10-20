@@ -16,6 +16,7 @@ from .options import OptionsPanel
 from .deadzones import DisplayProfile, MAX_WINDOWS
 from .projection import blackout_geometry
 from .text import configure_text, display_text
+from .chat import ChatBubbles
 
 class Aquarium(ShowBase):
     def __init__(self,args):
@@ -44,6 +45,7 @@ class Aquarium(ShowBase):
         fill=DirectionalLight("soft-fill");fill.setColor((.15,.30,.34,1));self.fill=self.render.attachNewNode(fill);self.fill.setHpr(130,-20,0)
         fog=Fog("water-depth");fog.setColor(.028,.15,.19);fog.setExpDensity(.012);self.render.setFog(fog)
         self.camera.setPos(0,-32,12);self.camera.lookAt(0,0,5.5)
+        self.chat=ChatBubbles(self.scene,self.camera,self.render,self.settings.chat_bubbles)
         self.cam.node().setActive(False)
         self.views=[];self.second_window=None;self.second_input=None;self._configuring_output=False
         self._next_view_id=1;self._destroying=False
@@ -114,6 +116,7 @@ class Aquarium(ShowBase):
                     width=max(x+w for x,y,w,h in rectangles)-left
                     height=max(y+h for x,y,w,h in rectangles)-top
                     full=desktop_lenses([(left,top,width,height)])[0]
+                    self.chat.set_view(full)
                     regions=tuple((2*(x-left)/width-1,2*(x+w-left)/width-1,
                                    1-2*(y+h-top)/height,1-2*(y-top)/height) for (x,y,w,h),visible in zip(rectangles,active) if visible)
                     rotation=self.camera.getQuat(self.render)
@@ -247,6 +250,11 @@ class Aquarium(ShowBase):
             self.status=f"Fullscreen unavailable: {error}"
             print(self.status,flush=True)
     def toggle_names(self):self.show_names=not self.show_names
+    def toggle_chat(self):
+        self.settings.chat_bubbles=not self.settings.chat_bubbles
+        self.chat.set_enabled(self.settings.chat_bubbles)
+        self.settings.save(self.args.settings)
+        self.controls.chat_button['text']='Channel chat: '+('on' if self.settings.chat_bubbles else 'off')
     def toggle_wall(self):
         if self.second_window:self.close_second_window()
         else:self.open_second_window()
@@ -308,7 +316,9 @@ class Aquarium(ShowBase):
                     self.status=event["text"];self.controls.on_connection(event)
                 elif kind=="devices":self.controls.on_devices(event)
                 elif kind=="notice":self.status=event["text"]
-                elif kind=="mesh":self.inbox=(self.inbox+[event])[-100:]
+                elif kind=="mesh":
+                    self.inbox=(self.inbox+[event])[-100:]
+                    self.chat.accept(event)
             else:
                 if event.kind=="return_status":self.status=f"RX return {event.status} · snapshot kept"
         poses=self.sim.step(dt);t=self.sim.time
@@ -322,6 +332,7 @@ class Aquarium(ShowBase):
         for node,phase in self.plants:node.setR(math.sin(t*.45+phase)*3)
         for node,x,y,phase,speed in self.bubbles:node.setPos(x+math.sin(t+phase)*.12,y,(phase+t*speed)%12)
         if self.caustic:self.caustic.setTexOffset(TextureStage.getDefault(),t*.009,t*.006)
+        self.chat.update(dt)
         # Static text changes on data changes, not on every rendered frame.
         waiting=sum(s.parked for s in self.sim.swimmers.values())
         space_note=f" · {waiting} waiting for swim space" if waiting else ""
@@ -347,6 +358,7 @@ class Aquarium(ShowBase):
 
     def destroy(self):
         if hasattr(self,"service"):self.service.close()
+        if hasattr(self,"chat"):self.chat.destroy()
         self._destroying=True
         for view in list(getattr(self,"views",[]))[1:]:self.close_view(view)
         for view in getattr(self,"views",[]):view.destroy()

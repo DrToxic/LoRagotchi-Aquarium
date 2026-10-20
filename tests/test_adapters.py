@@ -13,7 +13,10 @@ from tank.store import Store
 
 
 def test_tcp_loopback_authenticated_bridge_real_io(tmp_path):
-    token=b'x'*32;radio=SimulatedRadio(3);stop=threading.Event();errors=[]
+    token=b'x'*32
+    radio=SimulatedRadio(3,{3:'#loragotchi-DX'},
+                         [b'\x08\x03\xff\0'+bytes(4)+b'Nickel: Hello via bridge'])
+    stop=threading.Event();errors=[]
     server=socket.socket();server.bind(('127.0.0.1',0));server.listen(1)
     def run():
         sock,_=server.accept()
@@ -26,6 +29,8 @@ def test_tcp_loopback_authenticated_bridge_real_io(tmp_path):
     store=Store(tmp_path/'tcp.sqlite');client=Client(transport,store,token=123);client.connect()
     while client.poll():pass
     client.poll_messages();assert len(store.roster())==3
+    assert client.messages[-1]['channel_name']=='#loragotchi-DX'
+    assert client.messages[-1]['text']=='Nickel: Hello via bridge'
     client.close();stop.set();worker.join(3);server.close();store.close()
     assert not errors and not worker.is_alive()
 
@@ -44,7 +49,9 @@ def test_bridge_rejects_wrong_token():
 @pytest.mark.skipif(os.name!='posix',reason='POSIX pseudoterminal integration test')
 def test_serial_pseudoterminal_real_io(tmp_path):
     import pty
-    master,slave=pty.openpty();port=os.ttyname(slave);stop=threading.Event();radio=SimulatedRadio(2)
+    master,slave=pty.openpty();port=os.ttyname(slave);stop=threading.Event()
+    radio=SimulatedRadio(2,{5:'#loragotchi-DX'},
+                         [b'\x08\x05\xff\0'+bytes(4)+b'Nickel: Hello via USB'])
     transport=SerialTransport(port);parser=StreamFrames(b'<');errors=[]
     def peer():
         try:
@@ -61,6 +68,9 @@ def test_serial_pseudoterminal_real_io(tmp_path):
     store=Store(tmp_path/'serial.sqlite');client=Client(transport,store,token=456);client.connect()
     while client.poll():pass
     assert len(store.roster())==2
+    client.poll_messages()
+    assert client.messages[-1]['channel_name']=='#loragotchi-DX'
+    assert client.messages[-1]['text']=='Nickel: Hello via USB'
     client.close();stop.set();t.join(2);os.close(master);os.close(slave);store.close()
     assert not errors and not t.is_alive()
 
