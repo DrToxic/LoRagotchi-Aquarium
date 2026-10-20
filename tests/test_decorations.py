@@ -9,7 +9,8 @@ from tank.decorations import discover, DecorationLibrary
 from tank.settings import Settings
 from tank.simulation import Swimmer
 from tank.shelves import shelf_boxes, stacked_indices
-from tests.test_framing import frame
+from tank.framing import bounds, aim_at_sand
+from tank.views import desktop_lenses
 
 
 def test_bundled_models_and_solid_openings():
@@ -85,7 +86,10 @@ def test_decoration_toggle_reload_persistence_and_collision_cleanup(tmp_path):
 
 def test_stacked_shelves_have_centre_and_foreground_routes():
     rectangles=[(-600,-360,640,360),(-600,0,640,360)]
-    render,camera,full,lenses=frame(rectangles)
+    render=NodePath("render");camera=render.attachNewNode("camera")
+    camera.setPos(0,-32,12)
+    full=desktop_lenses([bounds(rectangles)])[0]
+    aim_at_sand(camera,render,full)
     assert stacked_indices(rectangles)==[0]
     boxes=shelf_boxes(rectangles,full,camera,render)
     assert len(boxes)==2
