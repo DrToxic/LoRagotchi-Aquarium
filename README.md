@@ -1,4 +1,4 @@
-# LoRagotchi-Aquarium · v0.2.0
+# LoRagotchi-Aquarium · v0.2.1
 
 A native **Python + Panda3D** aquarium for shared LoRagotchi fish. Real 3D fish,
 independent cruise/glide swimming, animated tails/turns, original procedural scenery, adjustable graphics, durable
@@ -9,6 +9,13 @@ RX receives a normal DX visit, captures a snapshot, then proactively returns the
 original after about four seconds. Returning the original **does not remove the
 copy**. No local pet, care or breeding runs on RX. Copies do not age themselves;
 sharing again refreshes their appearance.
+
+## v0.2.1 · Radio scrolling fix
+
+Chat history and the Tools activity log no longer disappear abruptly when
+scrolled. Scroll ranges now follow the actual rendered text, including wrapping
+and emoji, and reset when switching to an empty conversation. No database,
+firmware or radio protocol changes. See [verification](docs/TESTING-v0.2.1.md).
 
 ## Radio workspace (v0.2.0)
 

@@ -13,6 +13,22 @@ def editable_name(value):
     return ''.join(c for c in value if ord(c)>=32 and ord(c)!=127)
 
 
+def set_scrolled_text(frame, label, text, *, latest=True):
+    label['text']=text
+    # DirectLabel updates glyphs but keeps its original PGItem frame. Inside a
+    # PGScrollFrame that stale one-line frame culls the entire history as soon
+    # as it leaves the viewport, even while later lines are still on screen.
+    label.resetFrameSize()
+    # Font metrics/word wrapping, including emoji, determine the canvas height;
+    # a line-count estimate leaves blank overscroll or cuts off the final line.
+    bottom=label.getZ()+label.getBounds()[2]
+    left,right,_,top=frame['canvasSize']
+    view=frame['frameSize']
+    height=max(view[3]-view[2],top-bottom+12)
+    frame['canvasSize']=(left,right,top-height,top)
+    frame.verticalScroll['value']=1 if latest else 0
+
+
 class Picker:
     """A bounded popup with pagination: all contacts stay reachable at 432px."""
     def __init__(self, ui, parent, y, changed, width=376):
@@ -170,7 +186,7 @@ class RadioPanel:
         if self.conversation:self.drafts[self.conversation]=self.composer.get()
         self.conversation=key;self.chat_selected=key
         self.composer.enterText(self.drafts.get(key,''));self.messages=[]
-        self.transcript_label['text']='No messages in this conversation yet.'
+        set_scrolled_text(self.transcript,self.transcript_label,'No messages in this conversation yet.')
         if key:self.load_history()
         self.refresh_enabled()
 
@@ -212,10 +228,7 @@ class RadioPanel:
             lines.extend(textwrap.wrap(display_text(item['text']),width=45,replace_whitespace=False) or [''])
             lines.append('')
         rendered='\n'.join(lines) or 'No saved messages here.'
-        self.transcript_label['text']=rendered
-        height=max(220,len(lines)*15+28)
-        self.transcript['canvasSize']=(0,374,-height,0)
-        self.transcript.verticalScroll['value']=0 if event.get('before') else 1
+        set_scrolled_text(self.transcript,self.transcript_label,rendered,latest=not event.get('before'))
         self.chat_summary['text']=f"{len(self.messages)} messages · {'earlier page' if event.get('before') else 'latest'}"
 
     def build_contacts(self,parent):
@@ -403,7 +416,8 @@ class RadioPanel:
         if kind=='radio_state':
             if self.state.get('rx')!=event['rx']:
                 self.messages=[];self.conversation=None;self.chat_selected=None;self.unread.clear();self.drafts.clear()
-                self.transcript_label['text']='No messages selected.';self.composer.enterText('');self.device_info=None
+                set_scrolled_text(self.transcript,self.transcript_label,'No messages selected.')
+                self.composer.enterText('');self.device_info=None
                 self.contact_uri.enterText('');self.password.enterText('');self.channel_secret.enterText('')
             self.state=event
             self.populate_chat();self.populate_contacts()
@@ -432,9 +446,7 @@ class RadioPanel:
                 lines=[]
                 for value in self.activity:
                     lines.extend(textwrap.wrap(display_text(value),54));lines.append('')
-                self.activity_label['text']='\n'.join(lines)
-                self.activity_frame['canvasSize']=(0,374,-max(80,len(lines)*14+20),0)
-                self.activity_frame.verticalScroll['value']=1
+                set_scrolled_text(self.activity_frame,self.activity_label,'\n'.join(lines))
             if kind=='radio_result':
                 request=self.pending.pop(event['id'],{})
                 if event['ok'] and request.get('action')=='send':
