@@ -19,7 +19,7 @@ class RadioSession:
         self.writable=not network
         self.supported=bool(getattr(self.transport,'supports_mesh_messages',True))
         self.info={}; self.device={}; self.contacts={}; self.channels={}; self.discovered={}
-        self.pending={}; self.early_acks=OrderedDict(); self.last_timestamp=0
+        self.pending={}; self.early_acks=OrderedDict(); self.last_timestamp=self.history.last_timestamp(client.rx)
         self.tasks=deque(); self.loaded=False; self.loading=False
         self.active_conversation=None; self.before=None
         client.radio=self

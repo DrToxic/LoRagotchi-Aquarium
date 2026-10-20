@@ -185,6 +185,8 @@ class RadioPanel:
             self.request('history',conversation=self.conversation,before=self.messages[0]['id'])
 
     def send(self):
+        # Keyboard shortcuts must obey the same in-flight guard as the button.
+        if any(p['action']=='send' for p in self.pending.values()):return
         key=self.chat_selected
         if not key:return
         text=self.composer.get()

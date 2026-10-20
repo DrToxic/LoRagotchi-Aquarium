@@ -59,7 +59,9 @@ def exercise(app):
     panel.chat_picker.selected='dm:'+PEER[:12];panel.chat_picker.render();panel.choose_chat('dm:'+PEER[:12])
     wait_for(lambda:any(m['direction']=='in' for m in panel.messages))
     panel.composer.enterText('Direct message with confirmed delivery');click('Send')
+    panel.send()  # A repeated hotkey before completion must not enqueue twice.
     wait_for(lambda:any(m['status']=='delivered' for m in panel.messages))
+    assert radio.tx_count==2
     screenshot('chat-direct')
     panel.page('Contacts');panel.contact_search.enterText('Nickel');click('Search')
     assert len(panel.contact_picker.items)==1 and panel.contact_picker.selected==PEER

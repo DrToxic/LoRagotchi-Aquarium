@@ -53,3 +53,10 @@ class RadioHistory:
 
     def conversations(self, rx):
         return [row[0] for row in self.db.execute('SELECT conversation FROM radio_messages WHERE rx=? GROUP BY conversation ORDER BY MAX(id) DESC',(rx,))]
+
+    def last_timestamp(self, rx):
+        latest=0
+        for row in self.db.execute('SELECT body FROM radio_messages WHERE rx=?',(rx,)):
+            item=json.loads(row[0])
+            if item.get('direction')=='out':latest=max(latest,int(item.get('timestamp',0)))
+        return latest

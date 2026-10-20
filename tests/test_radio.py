@@ -91,6 +91,19 @@ def test_ack_arrives_before_send_response_and_unknown_zero_ack(setup):
     assert peer.tx_count==2
 
 
+def test_outbound_timestamp_survives_same_clock_reconnect(setup,monkeypatch):
+    peer,store,client,radio,events=setup
+    monkeypatch.setattr('tank.radio.time.time',lambda:1700000100)
+    radio.send_message('direct',PEER,'First')
+    first=radio.history.messages(RX,'dm:'+PEER[:12])[-1]['timestamp']
+    radio.close()
+    new=RadioSession(client,events.append);new.schedule_refresh()
+    while new.tasks:client.poll();new.step()
+    new.send_message('direct',PEER,'Second')
+    assert new.history.messages(RX,'dm:'+PEER[:12])[-1]['timestamp']==first+1
+    new.close()
+
+
 def test_rejected_send_and_timeout_preserve_drafts_no_automatic_retry(setup):
     peer,store,client,radio,events=setup
     peer.reject_next=2
