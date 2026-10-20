@@ -4,9 +4,10 @@ from dataclasses import dataclass
 import math
 import re
 
-from panda3d.core import Point2, Point3, TextNode, TransparencyAttrib
+from panda3d.core import TextNode, TransparencyAttrib
 
 from .art import mesh
+from .framing import at_depth
 from .text import display_text
 
 CHANNEL = "#loragotchi-DX"
@@ -107,6 +108,9 @@ class ChatBubbles:
 
     def set_view(self, lens):
         self.lens = lens
+        for bubble in self.active:
+            bubble["top"] = self._exit_height(bubble["height"])
+            bubble["node"].setQuat(self.camera.getQuat(self.render))
 
     def accept(self, event):
         return self.queue.accept(event, self.time)
@@ -124,12 +128,11 @@ class ChatBubbles:
         self.next_spawn = self.time
 
     def _at_depth(self, u, v):
-        near, far = Point3(), Point3()
-        self.lens.extrude(Point2(u, v), near, far)
-        near = self.render.getRelativePoint(self.camera, near)
-        far = self.render.getRelativePoint(self.camera, far)
-        delta = far-near
-        return near+delta*((self.DEPTH-near.y)/delta.y)
+        return at_depth(self.lens,self.camera,self.render,u,v,self.DEPTH)
+
+    def _exit_height(self, height):
+        # A full card-height margin also covers its camera-facing tilt/depth.
+        return self._at_depth(0,1).z+height+.2
 
     def _spawn(self, message):
         left, right = self._at_depth(-.94, 0), self._at_depth(.94, 0)
@@ -170,10 +173,11 @@ class ChatBubbles:
         lane = (self.serial % 3)/2
         x = (left.x+width/2+.2)*(1-lane)+(right.x-width/2-.2)*lane
         bottom = -height-.65
-        top = self._at_depth(0, 1.2).z+height
+        top = self._exit_height(height)
         duration = max(24., min(34., 22.+len(message.text)*.055))
         node.setPos(x, self.DEPTH, bottom)
         self.active.append(dict(node=node, x=x, bottom=bottom, top=top,
+                                height=height, speed=(top-bottom)/duration,
                                 age=0., duration=duration, phase=self.serial*2.4))
         self.serial += 1
         self.builds += 1
@@ -182,14 +186,14 @@ class ChatBubbles:
         self.time += max(0., dt)
         for bubble in self.active[:]:
             bubble["age"] += max(0., dt)
-            progress = bubble["age"]/bubble["duration"]
-            if progress >= 1:
+            z = bubble["node"].getZ()+bubble["speed"]*max(0.,dt)
+            if z >= bubble["top"]:
                 bubble["node"].removeNode()
                 self.active.remove(bubble)
                 continue
             # Constant upward travel; subtle independent sway, no text rebuild.
             bubble["node"].setPos(bubble["x"]+.15*math.sin(bubble["age"]*.65+bubble["phase"]),
-                                  self.DEPTH, bubble["bottom"]+(bubble["top"]-bubble["bottom"])*progress)
+                                  self.DEPTH, z)
         if self.lens and self.queue.enabled and len(self.active) < MAX_ACTIVE and self.time >= self.next_spawn:
             message = self.queue.pop(self.time)
             if message:

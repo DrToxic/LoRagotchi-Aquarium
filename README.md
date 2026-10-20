@@ -1,4 +1,4 @@
-# LoRagotchi-Aquarium · v0.1.8
+# LoRagotchi-Aquarium · v0.1.9
 
 A native **Python + Panda3D** aquarium for shared LoRagotchi fish. Real 3D fish,
 independent cruise/glide swimming, animated tails/turns, original procedural scenery, adjustable graphics, durable
@@ -115,11 +115,28 @@ channel-message protocol. Synthetic protocol, serial/TCP and rendered pixel
 checks are documented in [v0.1.8 testing notes](docs/TESTING-v0.1.8.md).
 Physical radio/Windows validation of this new feature remains pending.
 
+### Per-window water framing (v0.1.9)
+
+The sand's far edge sits **one-third up from the bottom of each window** (with
+small natural ripples). It follows that window's height, including after resize
+or fullscreen; adding a taller screen does not fill its neighbours with sand.
+Portrait layouts crop the sides rather than showing an oversized empty sky.
+
+Both the small decorative air bubbles and channel-chat bubbles now travel beyond
+the **current top of the visible water** before recycling/removal. Chat keeps its
+position and cached text when the layout changes; it no longer expires at an old
+height or deadline after a resize. No fish data or radio changes are required.
+See [framing and bubble regression checks](docs/TESTING-v0.1.9.md).
+
 Each view is a **real, independently movable/resizable OS window**, not a split
-screen. All windows share the same fish and simulation. Their OS-reported client
-positions and sizes determine continuous camera crops, including vertical offsets
-and negative desktop coordinates. Move/resize windows to match your setup;
-changing the combined window bounds reframes the shared scene.
+screen. All windows share the same fish and simulation. Horizontal desktop
+positions, widths and gaps determine their shared water spans, including negative
+origins. Vertical framing is anchored at each window's sand line, **not the OS
+desktop Y offset**: vertically stacked/overlapping horizontal spans can show the
+same fish. Equal-height side-by-side views still form one continuous aquarium.
+Actual desktop positions/sizes remain authoritative for saved placement,
+deadzone percentages, outlines and blackouts. Move/resize windows to match your
+setup; changing the combined water bounds reframes the shared scene.
 
 In an additional window, `N` toggles names, `F` toggles that window's fullscreen,
 click/right arrow selects fish, `V` adds a view, and `Esc`/the close button closes
@@ -143,10 +160,11 @@ in v0.1.1.
 ### Deadzones and display layouts (v0.1.4)
 
 Open **Tab → Deadzones**. **Edges: on** is the default: the complete fish silhouette
-(body, fins and tail) stays within the union of non-minimized aquarium window
-areas. Fish can cross adjoining/overlapping edges, but cannot swim through a gap
-or missing corner between windows. Disconnected areas keep their fish until the
-layout changes; they do not secretly cross the desktop. Manual zones work at all
+(body, fins and tail) stays within the union of non-minimized, sand-aligned water
+areas. Fish can cross adjoining/overlapping water spans, but cannot swim through
+a horizontal gap or missing corner of those spans. A physical vertical desktop
+gap is not a water gap: each window keeps its own lower-third sand line.
+Disconnected water areas keep their fish until the layout changes. Manual zones work at all
 fish depths. **Edges: off** restores unrestricted gap-crossing; zones still apply.
 
 - **Add / Close:** up to eight native windows. Select a view in the dropdown;
@@ -312,7 +330,7 @@ connection-lifecycle checks. Physical USB/BLE/RX interoperability remains unveri
 | Windows | Owner tested initial prototype at 256 fish on i7-11700F / RTX 3060; v0.1.2 functionally accepted; v0.1.5 projector/multi-window hardware retest pending, physical RX link unverified, no installer |
 | macOS | Opportunistic; untested |
 | 1080p/4K | Arbitrary output dimensions and independent render scale; 1080p tested, 4K not benchmarked |
-| Video wall | Up to eight native OS windows; three-window offset animation, lifecycle, saved-layout restore and two-window reconstruction tested on Linux Xvfb; Windows/mixed-DPI placement unverified, no multi-host sync/bezel calibration |
+| Video wall | Up to eight native OS windows; per-window lower-third sand, three unequal/offset views, lifecycle, saved-layout restore and equal-height two-window reconstruction tested on Linux Xvfb; Windows/mixed-DPI placement unverified, no multi-host sync/bezel calibration |
 | USB | Actual serial I/O tested via pseudoterminal, physical RX untested |
 | BLE | Concrete adapter + BLE firmware build; packet contract tested, physical link untested |
 | WLAN/TCP | Authenticated bridge over actual loopback sockets tested; physical LAN/radio untested |

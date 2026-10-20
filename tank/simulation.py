@@ -62,8 +62,10 @@ class Simulation:
         self._view_config = None
         self._layout_dirty = False
 
-    def set_view(self, origin, right, forward, up, tan_x, tan_y, regions, zones=(), constrain=True):
-        config = (tuple(origin), tuple(right), tuple(forward), tuple(up), tan_x, tan_y, tuple(regions), tuple(zones), constrain)
+    def set_view(self, origin, right, forward, up, tan_x, tan_y, regions, zones=(), constrain=True,
+                 screen_regions=(), screen_aspect=None):
+        config = (tuple(origin), tuple(right), tuple(forward), tuple(up), tan_x, tan_y, tuple(regions),
+                  tuple(zones), constrain, tuple(screen_regions), screen_aspect)
         if config == self._view_config:
             return
         self._view_config = config

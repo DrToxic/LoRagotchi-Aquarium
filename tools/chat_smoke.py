@@ -75,12 +75,13 @@ def exercise(app):
     assert all(max(masked.getXel(x,y))==0 for x in range(0,1280,16) for y in range(0,720,16))
     app.display.zones=[];app.setup_output()
     # Geometry leaves the top before removal, not an abrupt on-screen expiry.
-    first["age"]=first["duration"]-.2
+    rising_z=first["node"].getZ()
+    first["node"].setZ(first["top"]-first["speed"]*.2)
     app.chat.update(.1)
     top=capture()
     app.chat.root.hide();no_top=capture();app.chat.root.show()
     assert difference(top,no_top)==0 and len(app.chat.active)==1
-    first["age"]=9;app.chat.update(0)
+    first["node"].setZ(rising_z);app.chat.update(0)
 
     # Shared world object, with a native second window and projector masks.
     app.add_window((1280,0,1280,720))

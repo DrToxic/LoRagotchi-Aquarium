@@ -12,12 +12,15 @@ class SwimVolume:
                        math.tan(math.pi/6), math.tan(math.pi/6)/(16/9),
                        ((-1., 1., -1., 1.),), constrain=False)
 
-    def configure(self, origin, right, forward, up, tan_x, tan_y, regions, zones=(), constrain=True):
+    def configure(self, origin, right, forward, up, tan_x, tan_y, regions, zones=(), constrain=True,
+                  screen_regions=(), screen_aspect=None):
         self.origin, self.right, self.forward, self.up = map(tuple, (origin, right, forward, up))
         self.tan_x, self.tan_y = tan_x, tan_y
         self.regions = tuple(regions)
         self.zones, self.constrain = tuple(zones), constrain
         self.aspect = tan_x/tan_y
+        self.screen_regions = tuple(screen_regions)
+        self.screen_aspect = screen_aspect if screen_aspect is not None else self.aspect
 
     def point(self, u, v, depth):
         return tuple(self.origin[i] + depth*(self.forward[i] + self.right[i]*u*self.tan_x
@@ -43,8 +46,32 @@ class SwimVolume:
         return tuple(intervals)
 
     def allows_box(self, box):
-        return ((not self.constrain or covered(box,self.regions)) and
-                not any(zone.blocks(box,self.aspect) for zone in self.zones))
+        if self.constrain and not covered(box,self.regions):
+            return False
+        if not self.zones:
+            return True
+        if not self.screen_regions:
+            return not any(zone.blocks(box,self.aspect) for zone in self.zones)
+        # Water is vertically sand-aligned; masks remain in real desktop space.
+        # Test each visible piece of the footprint against the exact same
+        # desktop coordinates used by that window's projector overlay.
+        visible = False
+        for water, screen in self.screen_regions:
+            x0,x1,y0,y1 = water
+            clipped = (max(box[0],x0),min(box[1],x1),max(box[2],y0),min(box[3],y1))
+            if clipped[0] > clipped[1] or clipped[2] > clipped[3]:
+                continue
+            visible = True
+            a,b,c,d = screen
+            mapped = (a+(clipped[0]-x0)*(b-a)/(x1-x0),
+                      a+(clipped[1]-x0)*(b-a)/(x1-x0),
+                      c+(clipped[2]-y0)*(d-c)/(y1-y0),
+                      c+(clipped[3]-y0)*(d-c)/(y1-y0))
+            if any(zone.blocks(mapped,self.screen_aspect) for zone in self.zones):
+                return False
+        # Inverted keep-ins cannot be escaped by swimming entirely offscreen,
+        # even when the separate window-edge protection switch is disabled.
+        return visible or not any(zone.enabled and zone.inverted for zone in self.zones)
 
     def allows(self, point, radius):
         if not self.constrain and not self.zones:return True

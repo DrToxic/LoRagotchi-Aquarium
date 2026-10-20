@@ -1,8 +1,10 @@
 """Native windows, desktop-aligned frusta and immutable name geometry.
 
 Panda3D owns OS windows, render targets and text shaping. Scene cameras share the
-same simulation; desktop rectangles (including negative origins) define crops.
+same simulation; sand-aligned water rectangles define their crops, while actual
+desktop rectangles (including negative origins) own masks and window placement.
 """
+import math
 from panda3d.core import CardMaker, NodePath, PerspectiveLens, Point2, TextNode, TransparencyAttrib
 from .text import display_text
 
@@ -15,8 +17,10 @@ def desktop_lenses(rectangles):
     bottom = max(y+h for x, y, w, h in rectangles)
     width, height = right-left, bottom-top
     base = PerspectiveLens()
-    base.setFov(60)
     base.setAspectRatio(width/height)
+    # Portrait layouts crop the sides of the familiar 16:9 water volume,
+    # rather than exposing a huge empty sky above the bounded aquarium.
+    base.setFov(math.degrees(2*math.atan(math.tan(math.pi/6)*min(1., width/height/(16/9)))))
     base.setNearFar(.1, 120)
     film = base.getFilmSize()
     focal = base.getFocalLength()

@@ -1,12 +1,11 @@
 import math
 from pathlib import Path
-import random
 import time
 from panda3d.core import (AmbientLight,DirectionalLight,Fog,WindowProperties,
                          TransparencyAttrib,ClockObject,TextureStage,TextNode,loadPrcFileData)
 from direct.showbase.ShowBase import ShowBase
 from direct.gui.OnscreenText import OnscreenText
-from .art import fish_model,scenery,ellipsoid,mesh
+from .art import fish_model,scenery,mesh
 from .settings import Settings,PRESETS
 from .simulation import Simulation
 from .views import AquariumView, desktop_lenses
@@ -17,6 +16,8 @@ from .deadzones import DisplayProfile, MAX_WINDOWS
 from .projection import blackout_geometry
 from .text import configure_text, display_text
 from .chat import ChatBubbles
+from .bubbles import AirBubbles
+from .framing import bounds, regions, water_rectangles, aim_at_sand
 
 class Aquarium(ShowBase):
     def __init__(self,args):
@@ -88,10 +89,8 @@ class Aquarium(ShowBase):
             for x in (-14,-2,12):
                 ray=mesh("light-shaft",[((x,10,18),(0,-1,0),(.25,.53,.51,.025),(0,1)),((x-5,10,0),(0,-1,0),(.25,.53,.51,0),(0,0)),((x+4,10,0),(0,-1,0),(.25,.53,.51,0),(1,0)),((x+1,10,18),(0,-1,0),(.25,.53,.51,.055),(1,1))],[(0,1,2),(0,2,3)])
                 ray.reparentTo(self.decor);ray.setTransparency(TransparencyAttrib.MAlpha);ray.setLightOff();ray.setDepthWrite(False)
-        self.bubbles=[];rng=random.Random(17)
-        for _ in range(self.settings.bubbles):
-            bubble=ellipsoid("bubble",(.035,.035,.046),(.42,.70,.73,.4),8);bubble.setTransparency(TransparencyAttrib.MAlpha);bubble.reparentTo(self.decor)
-            self.bubbles.append((bubble,rng.uniform(-18,18),rng.uniform(-4,6),rng.uniform(0,12),rng.uniform(.2,.5)))
+        self.bubbles=AirBubbles(self.decor,self.settings.bubbles,self.camera,self.render)
+        if hasattr(self,"water_lens"):self.bubbles.set_view(self.water_lens)
         self.render.clearLight()
         if self.settings.lighting:
             self.render.setLight(self.ambient);self.render.setLight(self.sun);self.render.setLight(self.fill)
@@ -111,19 +110,22 @@ class Aquarium(ShowBase):
                 active=tuple(not v.window.getProperties().getMinimized() for v in self.views)
                 layout=(tuple(rectangles),active,tuple(self.display.zones),self.display.constrain)
                 if layout!=self._layout:
-                    for view,lens in zip(self.views,desktop_lenses(rectangles)):view.set_lens(lens)
-                    left=min(x for x,y,w,h in rectangles);top=min(y for x,y,w,h in rectangles)
-                    width=max(x+w for x,y,w,h in rectangles)-left
-                    height=max(y+h for x,y,w,h in rectangles)-top
-                    full=desktop_lenses([(left,top,width,height)])[0]
+                    water=water_rectangles(rectangles)
+                    full=self.water_lens=desktop_lenses([bounds(water)])[0]
+                    aim_at_sand(self.camera,self.render,full)
+                    for view,lens in zip(self.views,desktop_lenses(water)):view.set_lens(lens)
                     self.chat.set_view(full)
-                    regions=tuple((2*(x-left)/width-1,2*(x+w-left)/width-1,
-                                   1-2*(y+h-top)/height,1-2*(y-top)/height) for (x,y,w,h),visible in zip(rectangles,active) if visible)
+                    self.bubbles.set_view(full)
+                    water_regions=regions(water);screen_regions=regions(rectangles)
+                    visible_regions=tuple(r for r,visible in zip(water_regions,active) if visible)
+                    mappings=tuple((w,s) for w,s,visible in zip(water_regions,screen_regions,active) if visible)
+                    left,top,width,height=bounds(rectangles)
                     rotation=self.camera.getQuat(self.render)
                     self.sim.set_view(tuple(self.camera.getPos(self.render)),tuple(rotation.getRight()),
                                       tuple(rotation.getForward()),tuple(rotation.getUp()),
                                       math.tan(math.radians(full.getHfov()/2)),
-                                      math.tan(math.radians(full.getVfov()/2)),regions,self.display.zones,self.display.constrain)
+                                      math.tan(math.radians(full.getVfov()/2)),visible_regions,self.display.zones,self.display.constrain,
+                                      mappings,width/height)
                     masks=blackout_geometry(self.display.zones,width/height,max(width,height))
                     for view,(x,y,w,h) in zip(self.views,rectangles):
                         view.set_blackout(masks,(2*(x-left)/width-1,2*(x+w-left)/width-1,
@@ -330,7 +332,7 @@ class Aquarium(ShowBase):
             tail.setH(math.sin(pose.phase)*22*pose.speed)
             for i,fin in enumerate(fins):fin.setH(math.sin(pose.phase*.65+i)*12)
         for node,phase in self.plants:node.setR(math.sin(t*.45+phase)*3)
-        for node,x,y,phase,speed in self.bubbles:node.setPos(x+math.sin(t+phase)*.12,y,(phase+t*speed)%12)
+        self.bubbles.update(dt)
         if self.caustic:self.caustic.setTexOffset(TextureStage.getDefault(),t*.009,t*.006)
         self.chat.update(dt)
         # Static text changes on data changes, not on every rendered frame.
