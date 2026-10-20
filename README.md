@@ -322,10 +322,10 @@ we can do these fun things!
 
 ## Related projects
 
-### Looking for the Aquarium firmware?
-https://github.com/DrToxic/LoRagotchi-RX [Pending...]
+### Looking for LoRagotchi-RX - the Aquarium firmware?
+https://github.com/DrToxic/LoRagotchi-RX
 
-### Looking for LoRagotchi-DX?
+### Looking for LoRagotchi-DX - the Companion firmware?
 Original Author: https://github.com/DarkButterfly85/LoRagotchi-DX
 
 Fork: https://github.com/DrToxic/LoRagotchi-DX
