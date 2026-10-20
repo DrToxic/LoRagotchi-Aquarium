@@ -12,6 +12,7 @@ class Client:
         self.messages=[]
         self.channel_names={}
         self.pending_messages=deque(maxlen=100)
+        self.radio=None
 
     def command(self,op,args=b""):
         payload=MAGIC+bytes([op])+struct.pack("<I",self.token)+args
@@ -27,6 +28,7 @@ class Client:
         raise TimeoutError("RX command timeout")
 
     def _ordinary(self,packet):
+        if self.radio and self.radio.push(packet):return
         msg=mesh_message(packet)
         if msg:
             msg["rx"]=self.rx
@@ -43,6 +45,7 @@ class Client:
             if packet[:1]==b"\x12":
                 found,name=channel_info(packet)
                 if found!=index:raise ProtocolError("Mismatched channel-info response")
+                if self.radio:self.radio.cache_channel(packet)
                 self.channel_names[index]=(name,time.monotonic()+30)
                 return name
             if packet[:1]==b"\x01":  # Unsupported/missing channel: fail closed.
@@ -59,6 +62,7 @@ class Client:
             msg["rx"]=self.rx
             if "channel_index" in msg:
                 msg["channel_name"]=self._channel_name(msg["channel_index"])
+            if self.radio:self.radio.incoming(msg)
             self.messages.append(msg);self.messages=self.messages[-100:];self.on_event(msg)
 
     def connect(self):
@@ -96,13 +100,13 @@ class Client:
 
     def poll_messages(self):
         if not getattr(self.transport,"supports_mesh_messages",True):return
-        # Stock sync command reads the real offline queue. No sending/answering DMs.
+        # The same consumer drains ordinary chat and LRX; no second port owner.
         self.transport.send(b"\x0a")
         end=time.monotonic()+2
         while time.monotonic()<end:
             packet=self.transport.receive(max(.1,end-time.monotonic()))
             if packet[:1] in (b"\x07",b"\x08",b"\x10",b"\x11",b"\x0a"):
-                self._ordinary(packet);self._flush_messages();return
+                self._ordinary(packet);self._flush_messages();return packet[:1]!=b'\x0a'
             self._ordinary(packet)
         raise TimeoutError("Mesh message poll timed out")
 

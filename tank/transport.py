@@ -1,4 +1,4 @@
-"""Real serial, TCP stream and BLE GATT adapters. No adapter writes radio DMs."""
+"""Real serial, TCP stream and BLE GATT adapters, each with one consumer."""
 import asyncio
 import collections
 import concurrent.futures
@@ -14,6 +14,7 @@ from .protocol import StreamFrames, frame, ProtocolError
 
 class StreamTransport:
     supports_mesh_messages = True
+    max_payload = 176
     def __init__(self):
         self.parser = StreamFrames()
         self.pending = collections.deque()
@@ -93,6 +94,7 @@ class BLETransport:
             self.client=BleakClient(address,timeout=20)
             await self.client.connect()
             self.supports_mesh_messages=self.client.mtu_size>=179
+            self.max_payload=min(176,max(20,self.client.mtu_size-3))
             def notify(_,data):
                 try:self.events.put_nowait(bytes(data))
                 except queue.Full:pass  # request timeout triggers a durable replay
@@ -111,7 +113,8 @@ class BLETransport:
             with contextlib.suppress(Exception):self.close()
             raise
     def send(self,payload):
-        if len(payload)>20: raise ProtocolError("LRX writes must fit default BLE MTU")
+        if len(payload)>getattr(self,'max_payload',20):
+            raise ProtocolError('Bluetooth MTU is too small for this command; use USB or a larger negotiated MTU.')
         asyncio.run_coroutine_threadsafe(self.client.write_gatt_char(self.RX,payload,response=True),self.loop).result(5)
     def receive(self,timeout=2):
         try:return self.events.get(timeout=timeout)

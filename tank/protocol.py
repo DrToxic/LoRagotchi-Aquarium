@@ -109,7 +109,7 @@ def encode_event(event):
 
 
 def mesh_message(payload):
-    """Read only actual companion messages; fish events are never fabricated DMs."""
+    """Decode actual companion messages; fish events are never fabricated DMs."""
     if not payload:
         return None
     code = payload[0]
@@ -117,10 +117,13 @@ def mesh_message(payload):
     if code in (7, 16) and len(payload) >= start+12:
         key = payload[start:start+6].hex()  # a prefix, deliberately not called a full identity
         text_type = payload[start+7]
-        if text_type != 0:
-            return {"kind": "mesh", "route": "direct", "sender_prefix": key, "text": "[non-plain message]"}
+        text_start = start+12+(4 if text_type == 2 else 0)
+        if len(payload) < text_start: return None
         return {"kind": "mesh", "route": "direct", "sender_prefix": key,
-                "text": payload[start+12:].decode("utf-8", errors="replace")[:160]}
+                "timestamp": struct.unpack_from('<I', payload, start+8)[0],
+                "text_type": text_type, "path_length": payload[start+6],
+                "snr": struct.unpack_from('<b',payload,1)[0]/4 if start==4 else None,
+                "text": payload[text_start:].decode("utf-8", errors="replace")[:160]}
     if code in (8, 17) and len(payload) >= start+7:
         text_type = payload[start+2]
         return {"kind": "mesh", "route": f"channel {payload[start]}",
@@ -137,7 +140,10 @@ def channel_info(payload):
     return payload[1], payload[2:34].split(b"\0", 1)[0].decode("utf-8", errors="replace")
 
 
-def bridge_command_allowed(payload):
-    """Only the RX extension and exact, read-only inbox/channel queries."""
-    return (payload == b"\x0a" or payload.startswith(MAGIC)
-            or len(payload) == 2 and payload[0] == 31)
+def bridge_command_allowed(payload, radio_control=False):
+    """RX plus bounded stock-client commands; writes require bridge opt-in."""
+    from .meshcore_protocol import allowed_command, BRIDGE_CAPS
+    if payload == BRIDGE_CAPS: return True
+    if payload.startswith(MAGIC):
+        return len(payload) in (9,10,13,15) and len(payload)>=9 and len(payload)=={0:9,1:10,2:9,3:15,4:13,5:9}.get(payload[4])
+    return allowed_command(payload, write=radio_control)

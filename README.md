@@ -1,4 +1,4 @@
-# LoRagotchi-Aquarium · v0.1.11
+# LoRagotchi-Aquarium · v0.2.1
 
 A native **Python + Panda3D** aquarium for shared LoRagotchi fish. Real 3D fish,
 independent cruise/glide swimming, animated tails/turns, original procedural scenery, adjustable graphics, durable
@@ -9,6 +9,35 @@ RX receives a normal DX visit, captures a snapshot, then proactively returns the
 original after about four seconds. Returning the original **does not remove the
 copy**. No local pet, care or breeding runs on RX. Copies do not age themselves;
 sharing again refreshes their appearance.
+
+## v0.2.1 · Radio scrolling fix
+
+Chat history and the Tools activity log no longer disappear abruptly when
+scrolled. Scroll ranges now follow the actual rendered text, including wrapping
+and emoji, and reset when switching to an empty conversation. No database,
+firmware or radio protocol changes. See [verification](docs/TESTING-v0.2.1.md).
+
+## Radio workspace (v0.2.0)
+
+One connection now serves the aquarium **and** the everyday MeshCore client:
+
+- **Connection:** existing USB, Bluetooth and network settings/layout.
+- **Chat:** channels and direct messages, UTF-8 composer, local history, unread
+  counts, pagination, and honest sent / delivered / unconfirmed status.
+- **Contacts:** search/paginate, discovered nodes, add/rename/favorite/remove,
+  reset/share routes and import/export MeshCore contact URLs.
+- **Channels:** configure slots, standard hashtag keys or supplied private keys;
+  replacing/clearing a configured slot requires a second click.
+- **Device:** identity/battery/storage, name, RF settings, TX power, coordinates,
+  contact/location preferences, clock sync and local/flood advertisements.
+- **Tools:** remote login/logout, commands, status, decoded telemetry, route
+  discovery/manual paths and local radio statistics.
+
+There is still only **one serial-port owner**. RX events keep their original
+commit-before-ACK path. No automatic radio sends, automatic message retries, or
+firmware changes are introduced. This is not full stock-app parity: maps, QR
+scanning, firmware flashing, signing/identity-key management and raw-packet tools
+are not included. [Usage and limitations](docs/RADIO.md).
 
 ## Quick start — no radio required
 
@@ -46,7 +75,7 @@ py -3.12 -m venv .venv
 
 The Windows example assumes Python 3.12 is installed. The owner tested the initial
 prototype on Windows with 256 fish (i7-11700F / RTX 3060), and accepted the
-v0.1.2 swimming/collision update. The new v0.1.3 radio controls need hardware testing. This is a source prototype, not a standalone installer.
+v0.1.2 swimming/collision update. The v0.2.0 Radio workspace needs physical-radio/Windows retesting. This is a source prototype, not a standalone installer.
 
 ```sh
 # Low-cost rendering on a high-resolution display; no automatic population loss.
@@ -280,10 +309,10 @@ Names and operator UI are optional. Synthetic mode is clearly labelled.
 
 ## RX connections
 
-Press **Tab → RX Radio**. The panel stays a compact 432×680 output pixels even on
-1440p/4K displays, with separate **Aquarium** and **RX Radio** tabs; it scales down
-when a smaller window cannot fit it. Existing graphics/fish controls remain in
-the Aquarium tab.
+Press **Tab → Radio → Connection**. The original connection form is retained
+inside the new Radio workspace. The controls are 432×724 pixels (scaling down
+for smaller windows); Aquarium, Deadzones, Decorations and Animations remain
+separate top-level tabs. See [Radio workspace](docs/RADIO.md) for chat and tools.
 
 - **USB serial:** refresh the detected ports, choose your RX (or enter `COM4`,
   `/dev/ttyUSB0`, etc.), then **Connect**. Baud rate is 115200.
@@ -298,8 +327,8 @@ The panel shows connecting/connected/retrying states and errors. A dropped link
 retries every three seconds until **Disconnect**. Disconnect also cancels a
 pending attempt; an in-flight radio request may finish first. Discovery and
 connection work run on the worker thread, not the renderer. Disconnect before
-scanning for another device. The app does not send chat replies or change radio
-settings from this panel.
+scanning for another device. Connection/discovery does not transmit messages or
+change radio settings. Other Radio sub-tabs do so only through explicit actions.
 
 Connection details are remembered beside graphics settings in `rx-connection.json`;
 only the token **file path** is saved, never its contents. There is **no automatic
@@ -311,8 +340,9 @@ collection; synthetic fish are not copied across. Even an explicit demo/replay
 uses your chosen database. Disconnect leaves the saved live fish swimming.
 
 Use only with RX firmware described in [the RX protocol](docs/RX-PROTOCOL.md).
-Stock/DX firmware does not implement this extension. No direct-message replies
-are sent by this PC client: RX is the sole LFG1 authority.
+Stock/DX firmware does not implement this extension. The PC can now send
+ordinary messages, but never generates automatic LFG1 replies: RX remains the
+sole fish-transfer authority.
 
 ```sh
 uv run loragotchi-tank --connect serial:/dev/ttyUSB0 --operator
@@ -343,8 +373,12 @@ privately copy the token file to the aquarium machine. Do not expose this port
 to the Internet. Challenge/HMAC authenticates the client but **does not encrypt**
 traffic; use an SSH tunnel when confidentiality is needed. No Wi-Fi credentials
 or firewall rules are changed. One connected consumer at a time. The bridge
-allows only the RX extension and read-only MeshCore inbox polling, not arbitrary
-radio configuration/private-key commands. No onboard WLAN RX build is supplied.
+defaults to the RX extension plus read-only stock-client queries. Add
+`--radio-control` on the bridge to permit supported chat/contact/channel/device
+actions. Private-key, signing, raw-packet, factory-reset and unrestricted local
+CLI commands are not forwarded. Both bridge and desktop need v0.2.0 for the
+new Radio workspace. Channel secrets and BLE PINs are filtered from bridge
+responses. No onboard WLAN RX build is supplied.
 
 The live SQLite database defaults to `~/.local/share/loragotchi-tank/live.sqlite`
 (or `XDG_DATA_HOME`). Settings use `~/.config/loragotchi-tank/settings.json` (or

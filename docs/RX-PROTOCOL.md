@@ -109,6 +109,35 @@ v0.1.8 adds an ephemeral public-screen overlay only for plain messages whose
 channel name resolves to `#loragotchi-DX` (case-insensitive). Command 31 reads the
 channel index's metadata; response 18 contains index, 32-byte name and 16-byte
 secret. Only the name is retained, cached for 30 seconds per connection. The
-secret is neither retained nor logged. The bridge permits this exact two-byte
-read command, not channel writes. No automatic replies or message sending.
+secret is neither retained nor logged. The original bridge permitted this exact two-byte read command. v0.2.0 adds
+the separately described [stock-client workspace](RADIO.md), with explicit user
+sends/settings and bridge write opt-in. No automatic replies are generated.
 BLE normal inbox is skipped when its large-message MTU cannot be established.
+
+
+## Stock-client multiplexing (v0.2.0)
+
+The service worker owns one Client/transport and serializes stock companion
+requests with LRX requests. Contact sync has an 8-second deadline; other stock
+commands have a 4-second deadline. Multi-channel refreshes issue one lookup per
+worker turn with LRX polling between turns, rather than blocking the 10-second
+lease for a complete channel scan. Ordinary message bursts drain faster while
+preserving LRX polling. An interrupted command is not retried automatically.
+
+DM identities on wire are six-byte prefixes. Contacts retain full public keys;
+sending fails closed if more than one saved contact matches the prefix. A
+received unresolved/ambiguous prefix is not presented as a verified full key.
+Chat history is separate from fish records and bounded to 5,000 messages per
+SQLite database. Channel conversations include a non-secret metadata/key
+fingerprint, preventing a changed channel slot from reusing the old history.
+
+The optional LAN bridge capability request is `70 52 43 01` (`\x70RC\x01`),
+handled by the bridge without radio I/O. Its response is the same four bytes
+plus a write-enabled byte. Default false; `--radio-control` opts in. Supported
+stock read commands are always allowed, while writes pass a strict length/code
+allowlist. Rejected requests return companion error 6 without dropping LRX.
+Response 18 retains its 50-byte shape but replaces nonzero channel-secret bytes
+with the first 16 bytes of SHA256(secret); empty keys remain zero. The desktop
+never treats these bytes as a usable secret. Device-info BLE PIN bytes are zeroed.
+This avoids publishing channel keys/PINs in metadata. The existing HMAC transport
+still lacks server authentication/encryption; use a trusted LAN or SSH tunnel.

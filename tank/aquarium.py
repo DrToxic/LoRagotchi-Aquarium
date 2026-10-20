@@ -39,7 +39,7 @@ class Aquarium(ShowBase):
         if args.no_lighting:self.settings.lighting=False
         if args.no_caustics:self.settings.caustics=False
         if args.no_vsync:self.settings.vsync=False
-        loadPrcFileData("tank",f"window-title LoRagotchi Aquarium — Controls\nwin-size 456 704\nwin-origin 32 32\nundecorated false\nfullscreen false\nsync-video {str(self.settings.vsync).lower()}\naudio-library-name null\nframebuffer-multisample 0\ntextures-power-2 none\nnotify-level warning\n")
+        loadPrcFileData("tank",f"window-title LoRagotchi Aquarium — Controls\nwin-size 456 748\nwin-origin 32 32\nundecorated false\nfullscreen false\nsync-video {str(self.settings.vsync).lower()}\naudio-library-name null\nframebuffer-multisample 0\ntextures-power-2 none\nnotify-level warning\n")
         configure_text()
         super().__init__();self.disableMouse();self.setBackgroundColor(.012,.075,.115,1)
         self.sim=Simulation();self.models={};self.roster=[];self.inbox=[];self.status="Starting aquarium…"
@@ -360,6 +360,7 @@ class Aquarium(ShowBase):
     def update(self,task):
         dt=min(ClockObject.getGlobalClock().getDt(),.1)
         self.window_drag.update()
+        self.controls.clipboard.pump()
         while not self.service.events.empty():
             event=self.service.events.get_nowait()
             if isinstance(event,dict):
@@ -376,6 +377,7 @@ class Aquarium(ShowBase):
                     self.status=event["text"];self.controls.on_connection(event)
                 elif kind=="devices":self.controls.on_devices(event)
                 elif kind=="notice":self.status=event["text"]
+                elif kind and kind.startswith('radio_'):self.controls.radio.on_event(event)
                 elif kind=="mesh":
                     self.inbox=(self.inbox+[event])[-100:]
                     self.chat.accept(event)
@@ -415,6 +417,7 @@ class Aquarium(ShowBase):
 
     def destroy(self):
         if hasattr(self,"service"):self.service.close()
+        if hasattr(self,"controls"):self.controls.clipboard.close()
         if hasattr(self,"window_drag"):self.window_drag.close()
         if hasattr(self,"chat"):self.chat.destroy()
         if hasattr(self,"transitions"):self.transitions.destroy()
