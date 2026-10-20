@@ -14,6 +14,15 @@ EMOJI_STYLE = 'tank-emoji'
 
 
 @lru_cache(maxsize=1)
+def entry_font():
+    """PGEntry uses one face: merged OFL outlines keep editable UTF-8 raw."""
+    path=Path(__file__).resolve().parent/'assets/AquariumEntry-Regular.ttf'
+    font=DynamicTextFont(Filename.fromOsSpecific(str(path)))
+    if not font.isValid():raise RuntimeError('Could not load the bundled input font.')
+    return font
+
+
+@lru_cache(maxsize=1)
 def configure_text():
     """Load bundled outline fonts once, on the render thread (also headless)."""
     assets = Path(__file__).resolve().parent / 'assets'

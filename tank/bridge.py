@@ -13,6 +13,7 @@ import socket
 import time
 from .protocol import StreamFrames, frame, bridge_command_allowed
 from .transport import open_transport, recv_exact
+from .meshcore_protocol import BRIDGE_CAPS
 
 
 def authenticate(sock, token):
@@ -26,7 +27,27 @@ def authenticate(sock, token):
     sock.settimeout(.05)
 
 
-def relay(sock,radio,token,stop=None):
+def forward_command(sock,radio,payload,radio_control=False):
+    if payload==BRIDGE_CAPS:
+        sock.sendall(frame(BRIDGE_CAPS+bytes([int(radio_control)]),b'>'))
+    elif bridge_command_allowed(payload,radio_control):radio.send(payload)
+    else:
+        # An explicit rejection keeps the LRX stream alive; never forward an
+        # unapproved command or infer permission from possession of a token.
+        sock.sendall(frame(b'\x01\x06',b'>'))
+
+
+def public_response(payload):
+    if payload[:1]==b'\x12' and len(payload)==50:
+        # Preserve slot-identity changes without forwarding channel secrets.
+        key=payload[34:]
+        return payload[:34]+(hashlib.sha256(key).digest()[:16] if any(key) else bytes(16))
+    if payload[:1]==b'\x0d' and len(payload)>=8:
+        return payload[:4]+bytes(4)+payload[8:]  # no BLE PIN over LAN
+    return payload
+
+
+def relay(sock,radio,token,stop=None,radio_control=False):
     authenticate(sock,token)
     parser=StreamFrames(b"<")
     while stop is None or not stop.is_set():
@@ -34,13 +55,9 @@ def relay(sock,radio,token,stop=None):
             data=sock.recv(1024)
             if not data:return
             for payload in parser.feed(data):
-                # Read-only ordinary inbox plus the RX extension; never arbitrary
-                # companion commands (private keys, RF settings, reboot, etc.).
-                if not bridge_command_allowed(payload):
-                    raise PermissionError("Command is not permitted through this bridge")
-                radio.send(payload)
+                forward_command(sock,radio,payload,radio_control)
         except socket.timeout:pass
-        try:sock.sendall(frame(radio.receive(.05),b">"))
+        try:sock.sendall(frame(public_response(radio.receive(.05)),b">"))
         except TimeoutError:pass
 
 
@@ -51,6 +68,7 @@ def main():
     parser.add_argument("--port",type=int,default=8765)
     parser.add_argument("--token-file",type=Path,required=True)
     parser.add_argument("--init-token",action="store_true")
+    parser.add_argument("--radio-control",action="store_true",help="Allow chat sends and supported radio settings for authenticated clients (trusted LAN/SSH tunnel only)")
     args=parser.parse_args()
     if args.init_token:
         args.token_file.parent.mkdir(parents=True,exist_ok=True)
@@ -80,10 +98,9 @@ def main():
                             data=sock.recv(1024)
                             if not data:break
                             for payload in parser_stream.feed(data):
-                                if not bridge_command_allowed(payload):raise PermissionError("Command not allowed")
-                                radio.send(payload)
+                                forward_command(sock,radio,payload,args.radio_control)
                         except socket.timeout:pass
-                        try:sock.sendall(frame(radio.receive(.05),b">"))
+                        try:sock.sendall(frame(public_response(radio.receive(.05)),b">"))
                         except TimeoutError:pass
                 except (ConnectionError,TimeoutError,OSError,PermissionError) as exc:
                     print(f"Bridge connection ended: {type(exc).__name__}")

@@ -76,7 +76,7 @@ def exercise(app):
     assert app.views[1].window.saveScreenshot(str(out/'v016-unicode-window-2.png'))
 
     controls = app.controls
-    controls.page('RX Radio')
+    controls.page('Radio')
     controls.transport_menu.set('Bluetooth LE')
     address = 'AA:BB:CC:DD:EE:FF'
     controls.on_devices({'transport':'ble','devices':[(address,'🐟 ☣️ RX')]})

@@ -5,12 +5,14 @@ from pathlib import Path
 import queue
 import threading
 import time
+from collections import deque
 from .client import Client
 from .connection import ConnectionProfile, discover, live_database
 from .demo import events
-from .protocol import decode_event
+from .protocol import decode_event, ProtocolError
 from .store import Store
 from .transport import open_transport
+from .radio import RadioSession
 
 
 class Service:
@@ -18,6 +20,7 @@ class Service:
         self.args = args
         self.events = queue.Queue(); self.commands = queue.Queue(); self.stop = threading.Event()
         self.generation = 0
+        self.radio_sequence = 0
         self.thread = threading.Thread(target=self.run, daemon=True, name='rx-storage')
         self.thread.start()
 
@@ -32,12 +35,20 @@ class Service:
         self.generation += 1
         self.commands.put(('disconnect', self.generation))
 
+    def radio_request(self, action, **data):
+        if self.commands.qsize() >= 32: raise ValueError('Radio queue is busy. Wait for pending operations.')
+        self.radio_sequence += 1
+        self.commands.put(('radio',self.generation,self.radio_sequence,action,data))
+        return self.radio_sequence
+
     def status(self, state, text, **extra):
         self.notify(dict(kind='connection', state=state, text=text, **extra))
 
     def run(self):
         store = client = target = token = None
         generation = 0
+        radio_jobs=deque()
+        last_history=last_rx=None
         mode = 'demo' if self.args.demo is not None else 'replay' if self.args.replay else 'live'
 
         def roster(): self.notify({'kind': 'roster', 'fish': store.roster(), 'mode': mode})
@@ -45,6 +56,8 @@ class Service:
         def close_client(graceful=True):
             nonlocal client
             if client is not None:
+                with contextlib.suppress(Exception):
+                    if client.radio is not None: client.radio.close()
                 with contextlib.suppress(Exception):
                     client.close() if graceful else client.transport.close()
                 client = None
@@ -71,6 +84,18 @@ class Service:
                     command = self.commands.get_nowait()
                     if command[0] == 'remove': store.remove(command[1]); roster()
                     elif command[0] == 'clear': store.end_session(); roster()
+                    elif command[0] == 'radio':
+                        if command[1]==self.generation and not client and last_history and command[3]=='history':
+                            data=command[4];conversation=data.get('conversation','')
+                            if not isinstance(conversation,str) or len(conversation)>100:
+                                self.notify(dict(kind='radio_result',id=command[2],ok=False,text='Invalid conversation.'))
+                            else:
+                                self.notify(dict(kind='radio_history',conversation=conversation,before=data.get('before'),
+                                                 messages=last_history.messages(last_rx,conversation,data.get('before'))))
+                                self.notify(dict(kind='radio_result',id=command[2],ok=True,text=''))
+                        elif command[1]!=self.generation or not client or len(radio_jobs)>=32:
+                            self.notify(dict(kind='radio_result',id=command[2],ok=False,text='Radio is disconnected or busy; action was not sent.'))
+                        else:radio_jobs.append(command)
                     elif command[0] == 'scan':
                         kind = command[1]
                         if target or client:
@@ -83,6 +108,9 @@ class Service:
                         # Superseded clicks cannot start another connection.
                         if command[1] != self.generation: continue
                         generation = command[1]
+                        while radio_jobs:
+                            old=radio_jobs.popleft()
+                            self.notify(dict(kind='radio_result',id=old[2],ok=False,text='Connection changed; action was not sent.'))
                         if command[0] == 'disconnect':
                             target = None; close_client()
                             self.status('idle', 'Radio disconnected · displayed copies remain')
@@ -119,13 +147,37 @@ class Service:
                             caps = client.connect()
                             if generation != self.generation or self.stop.is_set():
                                 close_client(); continue
+                            RadioSession(client,self.notify,network=target.startswith('tcp:'),
+                                         cancel=lambda:self.stop.is_set() or generation!=self.generation)
+                            last_history,last_rx=client.radio.history,client.rx
                             self.status('connected', f'RX {client.rx[:10]} · connected · {caps["capacity"]} intake slots',
                                         endpoint=target, rx=client.rx)
                         if client.poll(): roster()
                         if generation != self.generation or self.stop.is_set(): continue
                         if time.monotonic() >= next_mesh:
-                            client.poll_messages(); next_mesh = time.monotonic()+2
+                            more=client.poll_messages(); next_mesh = time.monotonic()+(.1 if more else 1)
+                        client.radio.expire()
+                        if radio_jobs:
+                            job=radio_jobs.popleft()
+                            if job[1]!=self.generation:
+                                self.notify(dict(kind='radio_result',id=job[2],ok=False,text='Connection changed; action was not sent.'))
+                            else:
+                                try:
+                                    text=client.radio.execute(job[3],job[4])
+                                    self.notify(dict(kind='radio_result',id=job[2],ok=True,text=text))
+                                except ProtocolError:
+                                    self.notify(dict(kind='radio_result',id=job[2],ok=False,text='Invalid radio response; reconnecting without resending.'))
+                                    raise
+                                except ValueError as exc:
+                                    self.notify(dict(kind='radio_result',id=job[2],ok=False,text=str(exc)))
+                                except Exception:
+                                    self.notify(dict(kind='radio_result',id=job[2],ok=False,text='Radio interrupted; result may be unknown. Nothing will be resent automatically.'))
+                                    raise
+                        elif generation==self.generation:client.radio.step()
                     except Exception as exc:
+                        while radio_jobs:
+                            old=radio_jobs.popleft()
+                            self.notify(dict(kind='radio_result',id=old[2],ok=False,text='Connection lost; queued action was not sent.'))
                         close_client(False)
                         if generation == self.generation and not self.stop.is_set():
                             self.status('retrying', f'Radio offline · {type(exc).__name__}: {str(exc)[:180]} · retrying in 3s')

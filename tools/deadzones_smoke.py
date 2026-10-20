@@ -21,7 +21,7 @@ def exercise(app):
     controls=app.controls;panel=controls.deadzones
     app.show_controls();controls.page('Deadzones')
     Path('.local').mkdir(exist_ok=True)
-    assert list(controls.tabs)==['Aquarium','RX Radio','Deadzones','Decorations','Animations']
+    assert list(controls.tabs)==['Aquarium','Radio','Deadzones','Decorations','Animations']
     for width,height in ((1280,720),(2560,1440),(3840,2160),(800,450)):
         props=WindowProperties();props.setSize(width,height);app.win.requestProperties(props);settle(app)
         controls.resize();app.graphicsEngine.renderFrame()

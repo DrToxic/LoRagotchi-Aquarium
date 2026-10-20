@@ -181,3 +181,35 @@ def test_explicit_cli_live_database_is_preserved(tmp_path,monkeypatch):
         db=Store(chosen,'test');assert len(db.roster())==1;db.close()
         assert not (tmp_path/'live.sqlite').exists()
     finally:service.close()
+
+
+def test_radio_operations_share_worker_and_stale_ui_sends_do_not_cross_reconnect(tmp_path,monkeypatch):
+    from tools.radio_peer import MeshRadio,PEER
+    radio=MeshRadio();threads=[];opens=[]
+    original_send=radio.send
+    def send(payload):threads.append(threading.get_ident());original_send(payload)
+    radio.send=send
+    def opening(*a,**kw):opens.append(threading.get_ident());return radio
+    monkeypatch.setattr('tank.service.open_transport',opening)
+    service=Service(args(tmp_path))
+    try:
+        wait_event(service,lambda e:e.get('kind')=='roster')
+        service.connect(ConnectionProfile(serial_port='COM7'));state(service,'connected')
+        service.radio_request('refresh')
+        wait_event(service,lambda e:e.get('kind')=='radio_state' and e.get('loaded'))
+        mid=service.radio_request('send',route='direct',target=PEER,text='Shared owner test')
+        result=wait_event(service,lambda e:e.get('kind')=='radio_result' and e.get('id')==mid)
+        assert result['ok'] and radio.tx_count==1
+        # A queued old-generation operation can never be issued to a new radio.
+        stale=service.radio_request('send',route='direct',target=PEER,text='Never resend after connection change')
+        service.disconnect()
+        result=wait_event(service,lambda e:e.get('kind')=='radio_result' and e.get('id')==stale)
+        assert not result['ok']
+        state(service,'idle')
+        service.radio_request('history',conversation='dm:'+PEER[:12])
+        history=wait_event(service,lambda e:e.get('kind')=='radio_history')
+        assert history['messages'][-1]['text']=='Shared owner test'
+        service.connect(ConnectionProfile(serial_port='COM7'));state(service,'connected')
+        assert radio.tx_count==1 and len(opens)==2
+        assert len(set(threads+opens))==1 and threads[0]!=threading.get_ident()
+    finally:service.close()

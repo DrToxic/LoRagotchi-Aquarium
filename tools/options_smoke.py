@@ -39,10 +39,10 @@ def exercise(app):
         assert controls.HEIGHT*scale<=height-24+.01
         controls.page('Aquarium');app.graphicsEngine.renderFrame()
         assert app.win.saveScreenshot(f'.local/v013-options-{width}.png')
-    print('PASS compact panel fixed at 432x680px on 720p/1440p/4K; fits smaller windows',flush=True)
+    print('PASS compact panel fixed at 432x724px on 720p/1440p/4K; fits smaller windows',flush=True)
     props=WindowProperties();props.setSize(1280,720);app.win.requestProperties(props)
     for _ in range(4):app.taskMgr.step()
-    app.on_window(app.win);controls.resize();controls.page('RX Radio')
+    app.on_window(app.win);controls.resize();controls.page('Radio')
     controls.transport_menu.set('USB serial')
     controls.scan_button['command']()
     wait_for(lambda:bool(controls.devices))

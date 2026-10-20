@@ -8,17 +8,20 @@ from direct.gui.DirectGui import DirectFrame, DirectLabel, DirectButton, DirectO
 from .connection import ConnectionProfile
 from .settings import PRESETS
 from .deadzone_panel import DeadzonePanel
-from .text import display_text
+from .text import display_text, entry_font
 from .decoration_panel import DecorationPanel
 from .animation_panel import AnimationPanel
+from .radio_panel import RadioPanel
+from .clipboard import Clipboard
 
 
 class OptionsPanel:
-    WIDTH, HEIGHT = 432, 680
+    WIDTH, HEIGHT = 432, 724
     TYPES = {'USB serial': 'serial', 'Bluetooth LE': 'ble', 'Network bridge': 'tcp'}
 
     def __init__(self, app):
         self.app = app; self.entries = []; self.devices = {}; self.scan_pending = False
+        self.clipboard=Clipboard()
         self.state = 'idle'; self.mode = 'demo' if app.args.demo is not None else 'replay' if app.args.replay else 'live'
         self.profile = ConnectionProfile.load(Path(app.args.settings).with_name('rx-connection.json'))
         if app.args.connect:
@@ -33,17 +36,20 @@ class OptionsPanel:
         self.label(self.root,'TANK CONTROLS',18,29,17)
         self.button(self.root,'–',389,25,25,app.toggle_panel)
         self.tabs = {name:self.button(self.root,name,18+i*81,66,78,lambda n=name:self.page(n))
-                     for i,name in enumerate(('Aquarium','RX Radio','Deadzones','Decorations','Animations'))}
+                     for i,name in enumerate(('Aquarium','Radio','Deadzones','Decorations','Animations'))}
         for button in self.tabs.values():button["text_scale"]=11
         self.pages = {name:DirectFrame(parent=self.root,frameColor=(0,0,0,0)) for name in self.tabs}
         self.build_aquarium(self.pages['Aquarium'])
-        self.build_radio(self.pages['RX Radio'])
+        self.radio=RadioPanel(self,self.pages['Radio'])
         self.deadzones=DeadzonePanel(self,self.pages['Deadzones'])
         self.decorations=DecorationPanel(self,self.pages['Decorations'])
         self.animations=AnimationPanel(self,self.pages['Animations'])
-        app.footer=self.label(self.root,'Starting aquarium…',18,621,12,396)
-        self.label(self.root,'Drag any aquarium to move; drag its edges to resize.\nTab brings controls here. Esc closes that aquarium.',18,655,12,396)
+        app.footer=self.label(self.root,'Starting aquarium…',18,665,12,396)
+        self.label(self.root,'Drag any aquarium to move; drag its edges to resize.\nTab brings controls here. Esc closes that aquarium.',18,699,12,396)
         self.page('Aquarium'); self.resize()
+        for key,operation in [('control-c','copy'),('control-x','cut'),('control-v','paste'),('control-shift-v','replace')]:
+            app.accept(key,self.edit_clipboard,[operation])
+        app.accept('control-enter',self.send_chat_shortcut)
 
     def label(self,parent,text,x,y,size=14,wrap=None):
         kwargs = dict(parent=parent,text=text,text_align=TextNode.ALeft,text_scale=size,
@@ -75,7 +81,7 @@ class OptionsPanel:
         return menu
 
     def entry(self,parent,text,x,y,width):
-        field = DirectEntry(parent=parent,initialText=text,scale=14,width=width/14,
+        field = DirectEntry(parent=parent,initialText=text,scale=14,width=width/14,entryFont=entry_font(),
                             numLines=1,focus=0,text_fg=(.94,.98,.95,1),
                             frameColor=(.07,.15,.18,1),relief=DGG.FLAT,
                             frameSize=(-.3,width/14+.3,-.6,1.2),pos=(x,0,-y),
@@ -197,9 +203,11 @@ class OptionsPanel:
     def on_connection(self,event):
         self.state=event.get('state','idle')
         self.connection_label['text']=display_text(textwrap.fill(event['text'],width=54,max_lines=5,placeholder='…'))
+        self.radio.connection(event)
         self.refresh()
 
     def refresh(self):
+        self.radio.refresh_hint()
         self.app.set_ui_text(self.mode_label,('Demo/replay will be replaced by the saved live collection.'
                                  if self.mode!='live' else 'LIVE collection · saved copies remain when disconnected.'))
         self.enabled(self.connect_button,self.state not in ('connecting','connected','retrying','disconnecting','fatal'))
@@ -214,8 +222,32 @@ class OptionsPanel:
             frame.show() if key==name else frame.hide()
             self.tabs[key]['frameColor']=(.14,.34,.37,1) if key==name else (.07,.16,.19,1)
         self.active_page=name
+        if name=='Radio':self.radio.page(self.radio.active)
 
     def editing(self):return any(entry['focus'] for entry in self.entries)
+    def send_chat_shortcut(self):
+        if self.active_page=='Radio' and self.radio.active=='Chat' and self.radio.composer['focus']:
+            self.radio.send()
+
+    def edit_clipboard(self,operation):
+        entry=next((entry for entry in self.entries if entry['focus'] and not entry.isHidden()),None)
+        if entry is None:return
+        try:
+            if operation in ('copy','cut'):
+                if entry['obscured']:raise ValueError('Masked fields are not copied to the clipboard.')
+                self.clipboard.copy(entry.get())
+                if operation=='cut':entry.enterText('')
+            else:
+                text=self.clipboard.paste()
+                if len(text)>4096:raise ValueError('Clipboard text exceeds 4096 characters.')
+                if any(ord(c)<32 and c not in '\n\t\r' for c in text):raise ValueError('Clipboard contains unsupported control characters.')
+                if entry['numLines']==1:text=text.replace('\r','').replace('\n',' ').replace('\t',' ')
+                if operation=='replace':entry.enterText(text)
+                else:
+                    old=entry.get();cursor=entry.guiItem.getCursorPosition()
+                    entry.enterText(old[:cursor]+text+old[cursor:]);entry.setCursorPosition(cursor+len(text))
+        except Exception as exc:
+            self.radio.status['text']=display_text(f'Clipboard unavailable: {exc}')
     def blur(self):
         for entry in self.entries:entry['focus']=0
     def next_field(self):
