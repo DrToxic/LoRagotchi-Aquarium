@@ -1,0 +1,3 @@
+include AGENTS.md uv.lock
+recursive-include tools *.py
+recursive-include docs *.md *.json *.jsonl
