@@ -64,6 +64,14 @@ def test_arrival_comes_from_above_and_hands_over_without_teleport(app):
     assert owner not in app.transitions.arrivals
 
 
+def test_same_frame_reconciliation_does_not_accumulate_arrival_tilt(app):
+    app.roster=[f for f in events(3) if isinstance(f,Snapshot)]
+    app.sync_models();tick(app,1.)
+    before={owner:tuple(model.getHpr()) for owner,(model,_,_) in app.models.items()}
+    for _ in range(3):app.transitions.update(0)
+    assert {owner:tuple(model.getHpr()) for owner,(model,_,_) in app.models.items()}==before
+
+
 @pytest.mark.parametrize("style",STYLES)
 def test_update_keeps_old_snapshot_until_exit_then_enters_latest(app,style):
     old=populate(app)

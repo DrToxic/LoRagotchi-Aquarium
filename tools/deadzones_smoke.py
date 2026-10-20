@@ -8,6 +8,10 @@ import time
 
 
 def exercise(app):
+    # Measure steady-state swimming/target freshness, not the initial interval
+    # while arrivals can legitimately be above a lower output's crop.
+    # Animated panorama/mask/lifecycle behavior lives in transitions_smoke.
+    app.settings.fish_animations=False;app.sync_models()
     from panda3d.core import WindowProperties, GraphicsWindow, Point3
     from tank.deadzones import DisplayProfile
     from tools.render_smoke import settle, capture
@@ -17,7 +21,7 @@ def exercise(app):
     controls=app.controls;panel=controls.deadzones
     app.show_controls();controls.page('Deadzones')
     Path('.local').mkdir(exist_ok=True)
-    assert list(controls.tabs)==['Aquarium','RX Radio','Deadzones','Decorations']
+    assert list(controls.tabs)==['Aquarium','RX Radio','Deadzones','Decorations','Animations']
     for width,height in ((1280,720),(2560,1440),(3840,2160),(800,450)):
         props=WindowProperties();props.setSize(width,height);app.win.requestProperties(props);settle(app)
         controls.resize();app.graphicsEngine.renderFrame()

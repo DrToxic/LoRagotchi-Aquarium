@@ -45,7 +45,7 @@ resize during lift, shared-actor panorama reconstruction, full blackout, output
 close/reopen, graphics rebuild and final actor/model/body cleanup.
 It also completes 256 animated arrivals, queues a 256-fish refresh, rebuilds
 graphics with both active and queued exits, and checks immediate opt-out cleanup.
-The 256-fish steady-state renderer and Unicode suites explicitly disable
+The 256-fish steady-state renderer, deadzone and Unicode suites explicitly disable
 animations to isolate their existing cached-label/window checks.
 
 Source archive and wheel asset equality, isolated frozen installs, checks and

@@ -199,7 +199,8 @@ class FishTransitions:
         t=ease(state.time/ENTRY_SECONDS)
         model.setPos(*mix(start,target,t))
         # Nose down on arrival; settle to the live swimmer's orientation.
-        model.setR(model.getR()+55*math.sin(math.pi*t))
+        model.setHpr(math.degrees(swimmer.heading),swimmer.bank,
+            -math.degrees(math.atan2(swimmer.vz,max(swimmer.speed,.01)))+55*math.sin(math.pi*t))
         if state.time<0:model.hide()
         else:model.show()
         return state.time>=ENTRY_SECONDS-1e-9
