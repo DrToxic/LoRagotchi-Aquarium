@@ -1,4 +1,11 @@
-# LoRagotchi-Aquarium · v0.6.0
+# LoRagotchi-Aquarium · v0.7.0
+
+## Themes and fish styles
+
+Six built-in themes, persistent editable custom themes, JSON import/export, and
+Classic/Rounded/Faceted fish styles. See [Themes](docs/THEMES.md) for controls,
+HA configuration authority and the portable data-only format.
+
 
 A native **Python + Panda3D** aquarium for shared LoRagotchi fish. Real 3D fish,
 independent cruise/glide swimming, animated tails/turns, original procedural scenery, adjustable graphics, durable

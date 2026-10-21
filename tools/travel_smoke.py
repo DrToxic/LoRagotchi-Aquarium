@@ -84,13 +84,19 @@ def exercise(app):
     pose=app.models[owner][0].getTransform();clock=travel.active.time
     for _ in range(5):app.sync_models();app.update_fish(0)
     assert app.models[owner][0].getTransform()==pose and travel.active.time==clock
+    from copy import deepcopy
+    settings=deepcopy(app.settings);settings.fish_style='rounded'
+    app.appearance.apply_settings(settings)
+    assert travel.active and travel.active.time==clock
+    assert app.models[owner][0].getTransform()==pose
+    assert app.models[owner][0].getTag('fish-style')=='rounded'
     app.set_preset('balanced')
     assert app.models[owner][0].getTransform()==pose
     app.update_fish(0)
     assert travel.active and travel.active.time==clock
     advance(8.)
     assert not travel.active and not s.arriving
-    report['checks'].append('dt=0 idempotence and live quality rebuild')
+    report['checks'].append('dt=0 idempotence, mid-journey restyle and live quality rebuild')
 
     # Native preferences persist only in the display profile.
     app.controls.page('Transfers');app.controls.transfers.choose('Occasional')

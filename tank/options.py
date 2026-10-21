@@ -15,6 +15,7 @@ from .expiry_panel import ExpiryPanel
 from .radio_panel import RadioPanel
 from .clipboard import Clipboard
 from .appearance_panel import AppearancePanel
+from .theme_panel import ThemePanel
 from .travel_panel import TravelPanel
 
 
@@ -47,6 +48,8 @@ class OptionsPanel:
         self.expiry=ExpiryPanel(self,self.pages['Lifespan'])
         self.pages['Appearance']=DirectFrame(parent=self.root,frameColor=(0,0,0,0))
         self.appearance=AppearancePanel(self,self.pages['Appearance'])
+        self.pages['Themes']=DirectFrame(parent=self.root,frameColor=(0,0,0,0))
+        self.themes=ThemePanel(self,self.pages['Themes'])
         self.pages['Transfers']=DirectFrame(parent=self.root,frameColor=(0,0,0,0))
         self.transfers=TravelPanel(self,self.pages['Transfers'])
         self.radio=RadioPanel(self,self.pages['Radio'])
@@ -238,6 +241,7 @@ class OptionsPanel:
         if name=='Radio':self.radio.page(self.radio.active)
         if name=='Lifespan':self.expiry.refresh()
         if name=='Appearance':self.appearance.refresh()
+        if name=='Themes':self.themes.refresh()
         if name=='Decorations':self.decorations.rebuild()
         if name=='Transfers':self.transfers.refresh()
 

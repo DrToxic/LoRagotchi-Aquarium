@@ -56,14 +56,21 @@ def fin(name,points,color):
     return node
 
 
-def fish_model(snapshot,detail):
+def fish_model(snapshot,detail,style='classic'):
+    from .themes import STYLES
+    if style not in STYLES:raise ValueError('Unknown fish style')
+    # Every variant stays inside Classic's body/contact and projected fin envelope.
+    rounded=style=='rounded';faceted=style=='faceted'
+    if faceted:detail=min(detail,10)
     root=NodePath("fish-"+snapshot.owner[:8]);body=colour(snapshot.body,snapshot.tint);scales=colour(snapshot.scales,snapshot.tint);eye=colour(snapshot.eyes,snapshot.tint)
+    root.setTag("fish-style",style)
     static=root.attachNewNode("static-fish-geometry")
     # Fusiform body, elliptical in section; bands are vertex-coloured masks.
     verts=[];tri=[];rings=detail;radial=max(8,detail)
     for i in range(rings+1):
         u=i/rings;x=-1.0+2*u
-        radius=max(.025,math.sin(math.pi*u)**.72)
+        radius=max(.025,math.sin(math.pi*u)**(.4 if rounded else .72))
+        if rounded:x*=.82
         for j in range(radial+1):
             angle=math.tau*j/radial
             y=.38*radius*math.cos(angle);z=.58*radius*math.sin(angle)
@@ -77,19 +84,30 @@ def fish_model(snapshot,detail):
     for i in range(rings):
         for j in range(radial):
             a=i*(radial+1)+j;b=a+radial+1;tri.extend(((a,a+1,b),(a+1,b+1,b)))
+    if faceted:
+        # Flat per-face normals, not just fewer smooth triangles.
+        flat=[]
+        for indices in tri:
+            a,b,c=[Vec3(*verts[k][0]) for k in indices]
+            normal=(b-a).cross(c-a)
+            if normal.lengthSquared()<1e-12:continue
+            normal.normalize()
+            colour_mean=tuple(sum(verts[k][2][i] for k in indices)/3 for i in range(4))
+            flat.extend((verts[k][0],normal,colour_mean,verts[k][3]) for k in indices)
+        verts=flat;tri=[(i,i+1,i+2) for i in range(0,len(flat),3)]
     mesh("body",verts,tri).reparentTo(static)
     # Tail assembly has its own joint, with another small tip joint.
-    tail=root.attachNewNode("tail-joint");tail.setX(-.88)
-    fin("tail",[(0,0,0),(-.65,0,.58),(-.53,0,0),(-.65,0,-.58)],scales).reparentTo(tail)
+    tail=root.attachNewNode("tail-joint");tail.setX(-.72 if rounded else -.88)
+    fin("tail",([(0,0,0),(-.28,0,.25),(-.5,0,.5),(-.6,0,.35),(-.55,0,0),(-.6,0,-.35),(-.5,0,-.5),(-.28,0,-.25)] if rounded else [(0,0,0),(-.65,0,.58),(-.53,0,0),(-.65,0,-.58)]),scales).reparentTo(tail)
     fin("dorsal",[(-.65,0,.32),(-.48,0,.87),(.38,0,.63),(.65,0,.31)],scales).reparentTo(static)
     fin("ventral",[(-.5,0,-.35),(-.45,0,-.74),(.2,0,-.48)],scales).reparentTo(static)
     fins=[]
     for side in (-1,1):
         finnode=root.attachNewNode("pectoral");finnode.setPos(.15,side*.31,-.03)
         fin("pectoral",[(0,0,0),(-.35,side*.4,-.27),(-.48,side*.12,.05)],body).reparentTo(finnode);fins.append(finnode)
-        eyeNode=ellipsoid("eye-rim",(.14,.055,.14),eye,max(8,detail//2));eyeNode.reparentTo(static);eyeNode.setPos(.65,side*.27,.18)
-        pupil=ellipsoid("eye",(.07,.035,.085),(.018,.03,.05),max(8,detail//2));pupil.reparentTo(static);pupil.setPos(.67,side*.316,.18)
-        glint=ellipsoid("eye-glint",(.023,.013,.025),(1.,1.,.94),8);glint.reparentTo(static);glint.setPos(.69,side*.344,.21);glint.setLightOff()
+        eyeNode=ellipsoid("eye-rim",(.14,.055,.14),eye,max(8,detail//2));eyeNode.reparentTo(static);eyeNode.setPos(.53 if rounded else .65,side*(.31 if rounded else .27),.18)
+        pupil=ellipsoid("eye",(.07,.035,.085),(.018,.03,.05),max(8,detail//2));pupil.reparentTo(static);pupil.setPos(.55 if rounded else .67,side*(.356 if rounded else .316),.18)
+        glint=ellipsoid("eye-glint",(.023,.013,.025),(1.,1.,.94),8);glint.reparentTo(static);glint.setPos(.57 if rounded else .69,side*(.384 if rounded else .344),.21);glint.setLightOff()
     static.flattenStrong()
     size=FISH_SCALES[snapshot.stage];root.setScale(size, size, size*(1.1 if snapshot.stage==3 else 1))
     return root,tail,fins

@@ -39,7 +39,7 @@ class AppearancePanel:
     def __init__(self, controls, parent):
         self.controls,self.app=controls,controls.app
         controls.button(parent,'Back to Aquarium',18,105,188,lambda:controls.page('Aquarium'))
-        controls.label(parent,'APPEARANCE',240,105,12)
+        controls.button(parent,'Themes & fish',224,105,190,lambda:controls.page('Themes'))
         self.pages={};self.fields={};self.buttons={}
         for i,(name,items) in enumerate(GROUPS.items()):
             self.buttons[name]=controls.button(parent,name,18+i*80,145,77,lambda n=name:self.page(n))
@@ -112,6 +112,7 @@ class AppearancePanel:
         settings.appearance=Appearance.from_dict(appearance)
         settings.appearance._extra=extra
         if any(getattr(settings,k)!=getattr(self.app.settings,k) for k in quality):settings.preset='custom'
+        if appearance!=asdict(self.app.settings.appearance):settings.theme_id="current"
         return settings
 
     def apply(self):
@@ -132,7 +133,7 @@ class AppearancePanel:
 
     def reset(self):
         # Reset appearance only, never quality, fish, windows or radio preferences.
-        settings=deepcopy(self.app.settings);settings.appearance=Appearance()
+        settings=deepcopy(self.app.settings);settings.appearance=Appearance();settings.theme_id="classic"
         try:self.app.appearance.apply_settings(settings)
         except OSError as exc:self.note['text']=str(exc)[:155];return
         self.app.appearance.preview=None

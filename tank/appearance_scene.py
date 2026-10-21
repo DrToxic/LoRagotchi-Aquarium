@@ -104,6 +104,7 @@ class AppearanceScene:
         geometry = any(getattr(previous,k) != getattr(settings,k) for k in ('detail','plants','bubbles','caustics'))
         if geometry:a.rebuild_scene()
         else:
+            if previous.fish_style != settings.fish_style:a.restyle_fish()
             from panda3d.core import ClockObject
             ClockObject.getGlobalClock().setFrameRate(settings.fps)
             if previous.scale != settings.scale:a.setup_output()

@@ -30,6 +30,8 @@ class Settings:
     fish_lifespan_hours:float=0.0
     exit_styles:dict=field(default_factory=dict)
     appearance:Appearance=field(default_factory=Appearance)
+    theme_id:str="current"
+    fish_style:str="classic"
     schema_version:int=2
     def apply(self,name):
         for k,v in PRESETS[name].items():setattr(self,k,v)
@@ -80,6 +82,13 @@ LIMITS={'scale':(.25,2,False),'detail':(8,48,True),'plants':(0,100,True),
 
 
 def validate_setting(key,value):
+    if key=='theme_id':
+        from .themes import identifier
+        return identifier(value)
+    if key=='fish_style':
+        from .themes import STYLES
+        if value not in STYLES:raise ValueError('Unknown fish style')
+        return value
     if key=='fish_lifespan_hours':return validate_hours(value)
     if key in LIMITS:
         low,high,integer=LIMITS[key]

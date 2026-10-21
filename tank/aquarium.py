@@ -271,7 +271,7 @@ class Aquarium(ShowBase):
             if fish.owner in self.models and self._model_snapshots.get(fish.owner)!=fish:
                 self.models.pop(fish.owner)[0].removeNode()
             if fish.owner not in self.models:
-                model,tail,fins=fish_model(fish,self.settings.detail);model.reparentTo(self.scene);self.models[fish.owner]=(model,tail,fins)
+                model,tail,fins=fish_model(fish,self.settings.detail,self.settings.fish_style);model.reparentTo(self.scene);self.models[fish.owner]=(model,tail,fins)
                 self._model_snapshots[fish.owner]=fish
                 if fish.owner in self.transitions.arrivals:model.hide()
         self.sim.roster(self.transitions.swimming())
@@ -283,6 +283,16 @@ class Aquarium(ShowBase):
             if journey.pose:model.setHpr(*journey.pose)
             if journey.phase in ('hidden','parked'):model.hide()
         for view in self.views:view.names.sync(visible)
+
+    def restyle_fish(self):
+        """Replace only mesh nodes; preserve snapshots, pose, visibility and physics."""
+        for owner,(old,tail,fins) in list(self.models.items()):
+            model,new_tail,new_fins=fish_model(self._model_snapshots[owner],self.settings.detail,self.settings.fish_style)
+            model.reparentTo(self.scene);model.setTransform(old.getTransform())
+            new_tail.setHpr(tail.getHpr())
+            for before,after in zip(fins,new_fins):after.setHpr(before.getHpr())
+            if old.isHidden():model.hide()
+            self.models[owner]=(model,new_tail,new_fins);old.removeNode()
 
     def build_panel(self):
         self.controls=OptionsPanel(self)
