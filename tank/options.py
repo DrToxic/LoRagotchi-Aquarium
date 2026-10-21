@@ -212,6 +212,7 @@ class OptionsPanel:
 
     def refresh(self):
         self.radio.refresh_hint()
+        if getattr(self,'active_page',None)=='Decorations':self.decorations.refresh_status()
         self.app.set_ui_text(self.mode_label,('Demo/replay will be replaced by the saved live collection.'
                                  if self.mode!='live' else 'LIVE collection · saved copies remain when disconnected.'))
         self.enabled(self.connect_button,self.state not in ('connecting','connected','retrying','disconnecting','fatal'))
@@ -228,6 +229,7 @@ class OptionsPanel:
         self.active_page=name
         if name=='Radio':self.radio.page(self.radio.active)
         if name=='Appearance':self.appearance.refresh()
+        if name=='Decorations':self.decorations.rebuild()
 
     def editing(self):return any(entry['focus'] for entry in self.entries)
     def send_chat_shortcut(self):

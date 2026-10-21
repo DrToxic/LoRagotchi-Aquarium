@@ -37,8 +37,10 @@ class DeadzonePanel:
         self.blackout_button=c.button(parent,'Blackout: off',18,530,126,lambda:self.toggle_flag('blackout'))
         self.invert_button=c.button(parent,'Invert: off',153,530,126,lambda:self.toggle_flag('inverted'))
         self.outlines_button=c.button(parent,'Outlines: off',288,530,126,self.toggle_outlines)
-        self.note=c.label(parent,'Click preview to place; Apply saves. Percentages span layout.\nInvert keeps fish inside; Blackout hides the excluded area.',18,559,12,396)
+        self.shelf_button=c.button(parent,'Edge shelf: off',18,570,396,self.toggle_shelf)
+        self.note=c.label(parent,'Click preview to place; Apply saves. Percentages span layout.\nInvert keeps fish inside; Blackout hides the excluded area.',18,606,12,396)
         self.draft_enabled=True;self.draft_blackout=False;self.draft_inverted=False
+        self.draft_edge_shelf=False
         self.refresh_windows();self.show_selected()
 
     def choose_window(self,label):
@@ -92,6 +94,8 @@ class DeadzonePanel:
         self.shape.set(zone.shape,fCommand=0)
         for field,value in zip(self.fields,(zone.x,zone.y,zone.width,zone.height)):field.enterText(f'{value:g}')
         self.draft_enabled=zone.enabled;self.draft_blackout=zone.blackout;self.draft_inverted=zone.inverted
+        self.draft_edge_shelf=zone.edge_shelf
+        self.shelf_button['text']='Edge shelf: '+('auto' if zone.edge_shelf else 'off')
         self.blackout_button['text']='Blackout: '+('on' if zone.blackout else 'off')
         self.invert_button['text']='Invert: '+('on' if zone.inverted else 'off')
         self.enabled_button['text']='Enabled: '+('on' if zone.enabled else 'off')
@@ -99,7 +103,9 @@ class DeadzonePanel:
         self.redraw()
     def apply(self):
         try:
-            zone=Deadzone(self.shape.get(),*(float(f.get()) for f in self.fields),enabled=self.draft_enabled,blackout=self.draft_blackout,inverted=self.draft_inverted)
+            uid=self.app.display.zones[self.selected].uid if self.selected is not None else ''
+            zone=Deadzone(self.shape.get(),*(float(f.get()) for f in self.fields),enabled=self.draft_enabled,blackout=self.draft_blackout,inverted=self.draft_inverted,
+                          uid=uid,edge_shelf=self.draft_edge_shelf)
             if self.selected is None:
                 if len(self.app.display.zones)>=MAX_ZONES:raise ValueError(f'Maximum {MAX_ZONES} zones. Edit or delete one first.')
                 self.app.display.zones.append(zone);self.selected=len(self.app.display.zones)-1
@@ -109,6 +115,20 @@ class DeadzonePanel:
             return
         self.note['text']='Deadzone applied. Move/resize windows normally.\nFish hidden by a layout change return to visible water.'
         self.persist();self.show_selected()
+        self.shelf_note()
+
+    def shelf_note(self):
+        if self.selected is not None:
+            zone=self.app.display.zones[self.selected]
+            if zone.edge_shelf:self.note['text']='Edge shelf: '+self.app.shelves.status.get(zone.uid,'No active view')
+
+    def toggle_shelf(self):
+        self.draft_edge_shelf=not self.draft_edge_shelf
+        self.shelf_button['text']='Edge shelf: '+('auto' if self.draft_edge_shelf else 'off')
+        if self.selected is not None:
+            self.app.display.zones[self.selected]=replace(self.app.display.zones[self.selected],edge_shelf=self.draft_edge_shelf)
+            self.persist();self.shelf_note()
+        else:self.note['text']='Apply the new zone to generate a shelf.\nRequires a flat upper edge and clear water above it.'
     def toggle_enabled(self):
         self.draft_enabled=not self.draft_enabled
         self.enabled_button['text']='Enabled: '+('on' if self.draft_enabled else 'off')

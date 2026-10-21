@@ -134,7 +134,7 @@ def plant_leaf(height,width,bend,color,detail=10):
     leaf=mesh("ribbon-leaf",verts,tri);leaf.setTwoSided(True);return leaf
 
 
-def scenery(parent,settings):
+def scenery(parent,settings,placement=None):
     rng=random.Random(101)
     static=parent.attachNewNode("static-reef")
     floor=floor_mesh();floor.reparentTo(parent);floor.setTexture(sand_texture());floor.setTwoSided(True)
@@ -142,9 +142,12 @@ def scenery(parent,settings):
     if settings.caustics:
         caustic=floor_mesh();caustic.reparentTo(parent);caustic.setZ(.025);caustic.setTexture(sand_texture(caustic=True));caustic.setTransparency(TransparencyAttrib.MAlpha);caustic.setLightOff();caustic.setDepthWrite(False)
     # Tiered rock clusters frame a clear centre swimming space.
-    for pos,scale,heading,colour,seed in reef_rocks(rng):
+    for index,(pos,scale,heading,colour,seed) in enumerate(reef_rocks(rng)):
         rock=ellipsoid("reef-stone",scale,colour,max(8,settings.detail),.18,seed)
         rock.reparentTo(static);rock.setPos(*pos);rock.setH(heading)
+        if placement:
+            from .collision import ellipsoid_hull
+            placement.register(f'reef:rock:{index}',rock,[(ellipsoid_hull(scale,1.12),(0,0,0),(heading,0,0))],batched=True)
     plants=[]
     for i in range(settings.plants):
         side=-1 if i%2 else 1;x=side*(10+rng.random()*10);y=-2+rng.random()*10
@@ -152,14 +155,28 @@ def scenery(parent,settings):
         col=(.10+rng.random()*.13,.34+rng.random()*.16,.22+rng.random()*.15)
         for j in range(3):
             leaf=plant_leaf(1.2+rng.random()*4,.25+rng.random()*.35,rng.uniform(-1,1),col,max(4,settings.detail//2));leaf.reparentTo(node);leaf.setH(j*110)
+        if placement:placement.register(f'reef:plant:{i}',node,sway=True)
     # Original branching coral, low in the tank, cool/warm accents.
-    for pos,scale,roll in coral_branches():
+    coral_groups={}
+    for index,(pos,scale,roll) in enumerate(coral_branches()):
         coral=(.58,.26,.30) if pos[0]<0 else (.40,.31,.57)
         stalk=ellipsoid("coral-branch",scale,coral,max(8,settings.detail//2))
         stalk.reparentTo(static);stalk.setPos(*pos);stalk.setR(roll)
+        if placement:
+            from .collision import ellipsoid_hull
+            group=index//5
+            if group not in coral_groups:
+                root=static.attachNewNode('coral-cluster');root.setPos(pos[0],pos[1],0)
+                coral_groups[group]=(root,[])
+            root,shapes=coral_groups[group]
+            stalk.wrtReparentTo(root)
+            shapes.append((ellipsoid_hull(scale,1.06),tuple(stalk.getPos()),(0,0,roll)))
+    if placement:
+        for index,(root,shapes) in coral_groups.items():placement.register(f'reef:coral:{index}',root,shapes,batched=True)
     # Tiny scattered pebbles are merged by Panda's static scene flattening.
     for i in range(70 if settings.detail>12 else 20):
         rock=ellipsoid("pebble",(.09+rng.random()*.18,.09,.055),(.37,.40,.32),8)
         rock.reparentTo(static);rock.setPos(rng.uniform(-20,20),rng.uniform(-7,5),.15)
-    static.flattenStrong()
+        if placement:placement.register(f'reef:pebble:{i}',rock,batched=True)
+    if not placement:static.flattenStrong()
     return plants,caustic

@@ -6,6 +6,7 @@ sweeps; rounded boxes and ellipses use analytic box intersection tests.
 from dataclasses import asdict, dataclass, field
 import json
 import math
+import uuid
 from pathlib import Path
 
 SHAPES = ('Rectangle', 'Rounded rectangle', 'Ellipse')
@@ -23,12 +24,15 @@ class Deadzone:
     enabled: bool = True
     blackout: bool = False
     inverted: bool = False
+    uid: str = ''
+    edge_shelf: bool = False
 
     def __post_init__(self):
         if self.shape not in SHAPES:
             raise ValueError('Choose a supported shape.')
-        if any(type(v) is not bool for v in (self.enabled,self.blackout,self.inverted)):
+        if any(type(v) is not bool for v in (self.enabled,self.blackout,self.inverted,self.edge_shelf)):
             raise ValueError('Use on/off values for zone switches.')
+        if not isinstance(self.uid,str) or len(self.uid)>80:raise ValueError('Invalid zone identity')
         if not all(math.isfinite(v) for v in (self.x, self.y, self.width, self.height)):
             raise ValueError('Coordinates must be finite numbers.')
         if not (0 <= self.x < 100 and 0 <= self.y < 100 and
@@ -117,24 +121,60 @@ class DisplayProfile:
     constrain: bool = True
     zones: list[Deadzone] = field(default_factory=list)
     windows: list[tuple[int,int,int,int]] = field(default_factory=list)
+    protect_scenery: bool = True
+    placements: dict = field(default_factory=dict)
+    window_ids: list[str] = field(default_factory=list)
+
+    def identities(self):
+        from dataclasses import replace
+        seen=set()
+        for i,zone in enumerate(self.zones):
+            if not zone.uid or zone.uid in seen:
+                zone=replace(zone,uid=uuid.uuid4().hex);self.zones[i]=zone
+            seen.add(zone.uid)
+        while len(self.window_ids)<len(self.windows):self.window_ids.append(uuid.uuid4().hex)
+        self.window_ids=self.window_ids[:len(self.windows)]
 
     @classmethod
     def load(cls,path):
         try:
             raw=json.loads(Path(path).read_text())
-            if not isinstance(raw,dict) or raw.get('version') != 1 or type(raw.get('constrain',True)) is not bool:raise ValueError()
-            zones=[Deadzone(**z) for z in raw.get('zones',[])]
+            if not isinstance(raw,dict) or raw.get('version') not in (1,2) or type(raw.get('constrain',True)) is not bool:raise ValueError()
+            zones=[]
+            for z in raw.get('zones',[]):
+                z=dict(z)
+                # Invalid new metadata never discards otherwise valid v1 geometry.
+                if not isinstance(z.get('uid',''),str) or len(z.get('uid',''))>80:z['uid']=''
+                if type(z.get('edge_shelf',False)) is not bool:z['edge_shelf']=False
+                zones.append(Deadzone(**z))
             windows=[tuple(r) for r in raw.get('windows',[])]
             if len(zones)>MAX_ZONES or len(windows)>MAX_WINDOWS:raise ValueError()
             for r in windows:
                 if len(r)!=4 or any(type(v) is not int for v in r):raise ValueError()
                 x,y,w,h=r
                 if not (-100000<=x<=100000 and -100000<=y<=100000 and 320<=w<=16384 and 180<=h<=16384):raise ValueError()
-            return cls(raw.get('constrain',True),zones,windows)
+            protected=raw.get('protect_scenery',True)
+            placements={}
+            for key,item in (raw.get('placements',{}) if isinstance(raw.get('placements',{}),dict) else {}).items():
+                if not isinstance(key,str) or len(key)>160 or not isinstance(item,dict):continue
+                pos=item.get('position')
+                if not isinstance(pos,list) or len(pos)!=3 or any(type(n) not in (int,float) or not math.isfinite(n) or abs(n)>1000 for n in pos):continue
+                placements[key]={'position':list(pos),'pinned':item.get('pinned') is True,
+                                 'support':str(item.get('support','floor'))[:160]}
+                if len(placements)>=512:break
+            ids=raw.get('window_ids',[])
+            if not isinstance(ids,list) or any(not isinstance(v,str) or not v or len(v)>80 for v in ids) or len(set(ids))!=len(ids):ids=[]
+            return cls(raw.get('constrain',True),zones,windows,protected if type(protected) is bool else True,placements,ids[:MAX_WINDOWS])
         except (OSError,ValueError,TypeError,KeyError):return cls()
 
     def save(self,path):
         path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
+        if path.exists():
+            try:
+                if json.loads(path.read_text()).get('version')==1:
+                    backup=path.with_suffix('.v1.json')
+                    if not backup.exists():backup.write_bytes(path.read_bytes())
+            except (ValueError,AttributeError):pass
         temporary=path.with_suffix('.tmp')
-        temporary.write_text(json.dumps({'version':1,**asdict(self)},indent=2))
+        temporary.write_text(json.dumps({'version':2,**asdict(self)},indent=2))
         temporary.replace(path)

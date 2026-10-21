@@ -17,10 +17,10 @@ class Surface:
         return abs(x-self.x) < self.width/2-margin and abs(y-self.y) < self.depth/2-margin
 
 
-def surfaces(boxes, placement):
+def surfaces(boxes, placement, registered=None):
     result = [] if placement == 'shelves' else [Surface('floor', 0., 1., 0., 36., 10.)]
     if placement != 'floor':
-        result += [Surface(f'shelf-{i}', pos[0], pos[1], pos[2]+size[2]/2, size[0], size[1])
+        result += list(registered) if registered is not None else [Surface(f'shelf-{i}', pos[0], pos[1], pos[2]+size[2]/2, size[0], size[1])
                    for i, (pos,size,_) in enumerate(boxes)]
     return result
 
@@ -68,17 +68,34 @@ class BubbleColumns:
         self.time=0.;self.status='Columns off'
 
     def clear_path(self,x,y,z,margin):
+        return self.column_top(x,y,z,margin) is not None
+
+    def column_top(self,x,y,z,margin):
         from panda3d.core import Point3
         from .framing import at_depth
         a=self.app
         top=at_depth(a.water_lens,a.camera,a.render,0,1,y).z+.15
-        if top-z<1:return False
+        layout=getattr(getattr(a,'placement',None),'snapshot',None)
+        if layout:
+            # Stop at the first mask/window boundary, with enough margin for
+            # the entire drift envelope and largest particle. Swept boxes make
+            # thin masks/gaps impossible to tunnel through between samples.
+            radius=.052*1.3*a.settings.appearance.column_size
+            start=z+.04
+            low=start
+            if not layout.clear_bounds((x-margin,y-margin,low-radius),(x+margin,y+margin,low+radius),visible=True):return None
+            while low<top:
+                high=min(top,low+.25)
+                if not layout.clear_bounds((x-margin,y-margin,low-radius),(x+margin,y+margin,high+radius),visible=True):
+                    top=low;break
+                low=high
+        if top-z<1:return None
         # Ignore moving fish and world boundary planes; never change their masks.
         for dx,dy in ((0,0),(-margin,0),(margin,0),(0,-margin),(0,margin)):
             result=a.sim.physics.world.rayTestAll(Point3(x+dx,y+dy,z+.08),Point3(x+dx,y+dy,top))
             if any(hit.getNode().getMass()==0 and hit.getNode().getName()!='tank-wall'
-                   for hit in result.getHits()):return False
-        return True
+                   for hit in result.getHits()):return None
+        return top
 
     def configure(self):
         from panda3d.core import TransparencyAttrib
@@ -87,14 +104,17 @@ class BubbleColumns:
         a=self.app;p=a.settings.appearance
         if not hasattr(a,'water_lens'):return
         key=(tuple((k,v) for k,v in vars(p).items() if k.startswith('column_')),
-             a.shelves.boxes,a.sim.physics.revision,tuple(a.water_lens.getFov()))
+             a.shelves.boxes,tuple(getattr(a.shelves,'surfaces',())),a.sim.physics.revision,
+             getattr(getattr(a,'placement',None),'revision',0),tuple(a.water_lens.getFov()),
+             tuple(a.sim.volume.regions),tuple(a.sim.volume.zones),tuple(a.sim.volume.origin),tuple(a.sim.volume.forward))
         if key==self.key:return
         self.key=key
         old=self.anchors if self.seed==(p.column_seed,p.column_placement) else ()
         self.seed=(p.column_seed,p.column_placement)
-        self.anchors=place_emitters(p,surfaces(a.shelves.boxes,p.column_placement),self.clear_path,old)
+        self.anchors=place_emitters(p,surfaces(a.shelves.boxes,p.column_placement,getattr(a.shelves,'surfaces',None)),self.clear_path,old)
         self.root.getChildren().detach();self.items=[]
         if self.anchors:
+            tops={anchor:self.column_top(anchor[1],anchor[2],anchor[3],p.column_width+.2) for anchor in self.anchors}
             model=ellipsoid('column-bubble',(.04,.04,.052),(.42,.70,.73,.4),8)
             model.setTransparency(TransparencyAttrib.MAlpha)
             model.setDepthWrite(False)
@@ -102,7 +122,8 @@ class BubbleColumns:
             for i in range(p.column_particles):
                 anchor=self.anchors[i%len(self.anchors)]
                 _,x,y,z=anchor
-                top=at_depth(a.water_lens,a.camera,a.render,0,1,y).z+.15
+                top=tops[anchor]
+                if top is None:continue
                 node=model.copyTo(self.root)
                 node.setScale(p.column_size*rng.uniform(.7,1.3))
                 self.items.append((node,x,y,z+.04,top,rng.random(),rng.uniform(.7,1.3),rng.random()*math.tau))
@@ -111,6 +132,9 @@ class BubbleColumns:
         print('Appearance: '+self.status,flush=True)
 
     def update(self,dt):
+        if getattr(getattr(self.app,'window_drag',None),'active',None):
+            self.root.hide();return
+        self.root.show()
         self.configure()
         self.time+=max(0,dt)
         p=self.app.settings.appearance

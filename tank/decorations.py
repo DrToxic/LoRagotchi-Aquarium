@@ -72,6 +72,8 @@ class DecorationLibrary:
         return self.app.settings.decorations.get(item.key,item.enabled)
 
     def refresh(self):
+        placement=getattr(self.app,'placement',None)
+        if placement:placement.discard('decoration:')
         for key,node in self.nodes.items():
             node.removeNode()
             self.app.sim.physics.replace_boxes("decoration:"+key,[])
@@ -84,10 +86,24 @@ class DecorationLibrary:
                 if node is None or node.isEmpty():raise ValueError("Model did not load")
                 node.reparentTo(self.root);node.setPos(*item.position);node.setHpr(*item.hpr);node.setScale(item.scale)
                 self.nodes[item.key]=node
-                self._apply(item)
+                if placement:
+                    from panda3d.bullet import BulletBoxShape
+                    from panda3d.core import Vec3
+                    shapes=[]
+                    for position,size,hpr in item.solids:
+                        transform=node.attachNewNode('solid-transform')
+                        transform.setPos(*position);transform.setHpr(*hpr)
+                        world=transform.getPos(self.app.scene)
+                        shapes.append((BulletBoxShape(Vec3(*(v*item.scale/2 for v in size))),
+                                       tuple(world[i]-item.position[i] for i in range(3)),
+                                       tuple(transform.getHpr(self.app.scene))))
+                        transform.removeNode()
+                    placement.register('decoration:'+item.key,node,shapes,enabled=self.enabled(item))
+                else:self._apply(item)
             except (OSError,ValueError,TypeError) as exc:
                 self.errors.append(f"{item.key}: {exc}")
         self.app.sim.obstacles_changed()
+        if placement and (not hasattr(self.app,'views') or self.app.views):placement.apply()
 
     def _apply(self,item):
         node=self.nodes.get(item.key)
@@ -108,6 +124,7 @@ class DecorationLibrary:
     def set_enabled(self,key,enabled):
         if key not in self.nodes:return
         self.app.settings.decorations[key]=bool(enabled)
-        self._apply(self.items[key])
+        if hasattr(self.app,'placement'):self.app.placement.set_enabled('decoration:'+key,enabled)
+        else:self._apply(self.items[key])
         self.app.sim.obstacles_changed()
         self.app.settings.save(self.app.args.settings)

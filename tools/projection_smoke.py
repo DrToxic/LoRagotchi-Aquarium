@@ -13,6 +13,9 @@ def exercise(app):
     from panda3d.core import PNMImage, WindowProperties
     from tank.deadzones import Deadzone, DisplayProfile
     from tools.render_smoke import settle
+    # Isolate the blackout compositor: automatic scenery relocation deliberately
+    # changes unmasked pixels and is verified separately in layout_smoke.
+    app.display.protect_scenery=False
     deadline=time.monotonic()+15
     while len(app.roster)!=24 and time.monotonic()<deadline:app.taskMgr.step()
     assert len(app.roster)==24

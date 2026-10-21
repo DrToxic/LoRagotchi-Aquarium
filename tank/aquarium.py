@@ -1,6 +1,7 @@
 import math
 from pathlib import Path
 import time
+import uuid
 from panda3d.core import (AmbientLight,DirectionalLight,Fog,WindowProperties,
                          TransparencyAttrib,ClockObject,TextureStage,loadPrcFileData)
 from direct.showbase.ShowBase import ShowBase
@@ -24,6 +25,8 @@ from .shelves import SandShelves
 from .transitions import FishTransitions
 from .appearance_scene import AppearanceScene
 from .bubble_columns import BubbleColumns
+from .placement import ScenePlacement
+from .layout import LayoutSnapshot
 
 class Aquarium(ShowBase):
     def __init__(self,args):
@@ -31,6 +34,7 @@ class Aquarium(ShowBase):
         for warning in self.settings.load_warnings:print('Settings: '+warning,flush=True)
         self.display_path=Path(args.settings).with_name('display-layout.json')
         self.display=DisplayProfile.load(self.display_path)
+        self.display.identities()
         self.restore_rectangles=self.display.windows if args.wall_columns is None else []
         if self.restore_rectangles:args.width,args.height=self.restore_rectangles[0][2:]
         self.start_windows=args.wall_columns or len(self.restore_rectangles) or 1
@@ -45,7 +49,7 @@ class Aquarium(ShowBase):
         loadPrcFileData("tank",f"window-title LoRagotchi Aquarium — Controls\nwin-size 456 748\nwin-origin 32 32\nundecorated false\nfullscreen false\nsync-video {str(self.settings.vsync).lower()}\naudio-library-name null\nframebuffer-multisample 0\ntextures-power-2 none\nnotify-level warning\n")
         configure_text()
         super().__init__();self.disableMouse();self.setBackgroundColor(.012,.075,.115,1)
-        self.sim=Simulation();self.models={};self.roster=[];self.inbox=[];self.status="Starting aquarium…"
+        self.sim=Simulation(reefs=False);self.models={};self.roster=[];self.inbox=[];self.status="Starting aquarium…"
         self.selected=0;self.show_names=self.settings.show_names;self.panel_visible=True;self.start=time.monotonic();self.screenshot_done=False
         self.scene=self.render.attachNewNode("aquarium");self.scene.setTwoSided(True)
         self.transitions=FishTransitions(self);self._model_snapshots={}
@@ -63,6 +67,7 @@ class Aquarium(ShowBase):
         self.window_drag=WindowDrag(self)
         self.buffer=None;self.screen=None;self.view_cameras=[]
         self.internal_size=(0,0)
+        self.placement=ScenePlacement(self)
         self.shelves=SandShelves(self)
         self.decorations=DecorationLibrary(self)
         self.appearance=AppearanceScene(self)
@@ -91,9 +96,12 @@ class Aquarium(ShowBase):
         return self.views[0].window if self.views else None
 
     def rebuild_scene(self):
+        self.placement.discard('reef:')
+        self.placement.batch.reparentTo(self.scene)
         if hasattr(self,"decor"):self.decor.removeNode()
         self.decor=self.scene.attachNewNode("scenery")
-        self.plants,self.caustic=scenery(self.decor,self.settings)
+        self.placement.batch.reparentTo(self.decor)
+        self.plants,self.caustic=scenery(self.decor,self.settings,self.placement)
         # Background gradient plane in world space.
         verts=[((-35,13,-1),(0,-1,0),(.015,.065,.10,1),(0,0)),((35,13,-1),(0,-1,0),(.015,.065,.10,1),(1,0)),
                ((35,13,23),(0,-1,0),(.06,.28,.33,1),(1,1)),((-35,13,23),(0,-1,0),(.06,.28,.33,1),(0,1))]
@@ -114,6 +122,7 @@ class Aquarium(ShowBase):
         self.models={};self._model_snapshots={};self._sync_fish_nodes()
         ClockObject.getGlobalClock().setMode(ClockObject.MLimited);ClockObject.getGlobalClock().setFrameRate(self.settings.fps)
         self.setup_output()
+        self.placement.apply()
         self.appearance.bind()
 
     def setup_output(self):
@@ -126,18 +135,19 @@ class Aquarium(ShowBase):
                                   self.sim.volume.up,self.sim.volume.tan_x,self.sim.volume.tan_y,())
                 self._layout=None
                 self.shelves.layout([],None,self.camera,self.render)
+                self.placement.apply()
                 return
             for view in self.views:view.resize(self.settings.scale)
             rectangles=[view.rectangle() for view in self.views]
             if all(w>0 and h>0 for x,y,w,h in rectangles):
                 active=tuple(not v.window.getProperties().getMinimized() for v in self.views)
-                layout=(tuple(rectangles),active,tuple(self.display.zones),self.display.constrain)
+                self.display.identities()
+                layout=(tuple(rectangles),active,tuple(self.display.zones),self.display.constrain,self.display.protect_scenery)
                 if layout!=self._layout:
                     full=self.water_lens=desktop_lenses([bounds(rectangles)])[0]
                     aim_at_sand(self.camera,self.render,full)
                     for view,lens in zip(self.views,desktop_lenses(rectangles)):view.set_lens(lens)
                     self.chat.set_view(full);self.bubbles.set_view(full)
-                    self.shelves.layout(rectangles,full,self.camera,self.render)
                     screen_regions=regions(rectangles)
                     left,top,width,height=bounds(rectangles)
                     rotation=self.camera.getQuat(self.render)
@@ -146,6 +156,10 @@ class Aquarium(ShowBase):
                                       math.tan(math.radians(full.getHfov()/2)),math.tan(math.radians(full.getVfov()/2)),
                                       tuple(r for r,visible in zip(screen_regions,active) if visible),
                                       self.display.zones,self.display.constrain)
+                    self.shelves.layout(rectangles,full,self.camera,self.render,
+                                        snapshot=LayoutSnapshot(self.sim.volume),
+                                        view_ids=[v.layout_id for v in self.views],active=active)
+                    self.placement.apply()
                     masks=blackout_geometry(self.display.zones,width/height,max(width,height))
                     for view,region in zip(self.views,screen_regions):
                         view.set_blackout(masks,region)
@@ -186,6 +200,7 @@ class Aquarium(ShowBase):
             if window is not None:self.closeWindow(window)
             self.status="Additional window could not open";return
         view=AquariumView(self,window);view.view_id=view_id
+        view.layout_id=(self.display.window_ids[view_id] if self.restore_rectangles and view_id<len(self.display.window_ids) else uuid.uuid4().hex)
         self.views.append(view);view.names.sync(self.transitions.shown.values())
         view.input=self.setupMouse(window,fMultiWin=True)
         prefix=f'view-{view_id}-';view.input.node().setPrefix(prefix)
@@ -231,7 +246,9 @@ class Aquarium(ShowBase):
         if self.second_window:self.close_view(self.views[1])
 
     def save_display(self,windows=False):
-        if windows:self.display.windows=[v.rectangle() for v in self.views]
+        if windows:
+            self.display.windows=[v.rectangle() for v in self.views]
+            self.display.window_ids=[v.layout_id for v in self.views]
         self.setup_output()
         try:self.display.save(self.display_path)
         except OSError as error:
@@ -374,6 +391,7 @@ class Aquarium(ShowBase):
     def update(self,task):
         dt=min(ClockObject.getGlobalClock().getDt(),.1)
         self.window_drag.update()
+        if self.placement.pending and not self.window_drag.active:self.placement.apply()
         self.controls.clipboard.pump()
         while not self.service.events.empty():
             event=self.service.events.get_nowait()

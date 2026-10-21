@@ -4,7 +4,7 @@ Capsules enclose fish bodies, not flexible fins/tails. Convex rock/coral proxies
 share the artwork's transforms. Bullet supplies broadphase, CCD and the solver.
 """
 import math
-from panda3d.core import NodePath, Vec3, loadPrcFileData
+from panda3d.core import NodePath, Vec3, TransformState, loadPrcFileData
 from panda3d.bullet import (BulletWorld, BulletRigidBodyNode, BulletCapsuleShape,
                            BulletConvexHullShape, BulletPlaneShape, BulletBoxShape, XUp)
 from .habitat import FISH_SCALES, TANK_LIMITS, reef_rocks, coral_branches
@@ -66,14 +66,33 @@ class CollisionWorld:
         Entries are (world centre, full size, world HPR). The artwork and these
         proxies share transforms; removing an object removes its collisions too.
         """
+        self.replace_shapes(group,[(BulletBoxShape(Vec3(*(s/2 for s in size))),pos,hpr)
+                                   for pos,size,hpr in boxes])
+
+    def replace_shapes(self, group, shapes):
+        """Replace exactly one placement owner's solids (including convex rocks)."""
         self.revision += 1
         for path in self.groups.pop(group, []):
             self.world.removeRigidBody(path.node())
             self.statics.remove(path)
             path.removeNode()
         self.groups[group] = [
-            self._static(group, BulletBoxShape(Vec3(*(s/2 for s in size))), pos, hpr)
-            for pos, size, hpr in boxes]
+            self._static(group, shape, pos, hpr) for shape,pos,hpr in shapes]
+
+    def shapes_clear(self, shapes, position, ignore=(), only=None):
+        """Compound object probe; preserve hollow-object openings and rotations."""
+        if not shapes:return True
+        node=BulletRigidBodyNode('scenery-placement-probe')
+        for shape,offset,hpr in shapes:
+            node.addShape(shape,TransformState.makePosHpr(Vec3(*offset),Vec3(*hpr)))
+        path=NodePath(node);path.setPos(*position)
+        for contact in self.world.contactTest(node).getContacts():
+            other=contact.getNode1() if contact.getNode0()==node else contact.getNode0()
+            # Scenery rests partly below the fish's sand plane by design.
+            if other.getName()=='tank-wall' or other.getName() in ignore:continue
+            if only is not None and other.getName() not in only:continue
+            if contact.getManifoldPoint().getDistance() < -.005:return False
+        return True
 
     def add(self, key, stage, pos, heading):
         if key in self.bodies:
