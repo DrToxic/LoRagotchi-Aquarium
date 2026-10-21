@@ -3,17 +3,16 @@ from .art import mesh, sand_texture, plant_leaf
 from .framing import at_depth, regions
 
 
-def stacked_indices(rectangles):
+def stacked_indices(rectangles,active=()):
     """Only an upper view with water below it gets shelves (not a side offset)."""
-    return [i for i,(x,y,w,h) in enumerate(rectangles) if any(
-        j!=i and yy>=y+h*.75 and min(x+w,xx+ww)-max(x,xx)>min(w,ww)*.2
+    return [i for i,(x,y,w,h) in enumerate(rectangles) if (not active or active[i]) and any(
+        j!=i and (not active or active[j]) and yy>=y+h*.75 and min(x+w,xx+ww)-max(x,xx)>min(w,ww)*.2
         for j,(xx,yy,ww,hh) in enumerate(rectangles))]
 
 
 def shelf_boxes(rectangles,lens,camera,render,*,keyed=False,view_ids=(),active=()):
     boxes=[]
-    for i in stacked_indices(rectangles):
-        if active and not active[i]:continue
+    for i in stacked_indices(rectangles,active):
         a,b,c,d=regions(rectangles)[i]
         v=c+(d-c)/3
         left=at_depth(lens,camera,render,a,v,5.)

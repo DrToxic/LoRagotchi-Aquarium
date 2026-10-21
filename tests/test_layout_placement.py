@@ -10,7 +10,7 @@ from tank.settings import Settings
 from tank.simulation import Simulation
 from tank.placement import ScenePlacement
 from tank.decorations import DecorationLibrary
-from tank.shelves import SandShelves, edge_attached, shelf_envelope
+from tank.shelves import SandShelves, edge_attached, shelf_envelope, stacked_indices
 from tank.layout import LayoutSnapshot
 from tank.views import desktop_lenses
 from tank.framing import bounds, regions, aim_at_sand
@@ -132,6 +132,13 @@ def test_small_edge_contact_and_joined_seam_are_distinguished(tmp_path):
     assert edge_attached(zone,app.placement.snapshot)
     configure(app,rectangles=((0,0,480,540),(480,0,480,540)))
     assert not edge_attached(Deadzone(x=45,y=30,width=10,height=10),app.placement.snapshot)
+
+
+def test_minimized_windows_do_not_generate_stacked_supports():
+    rectangles=((0,0,960,540),(0,540,960,540))
+    assert stacked_indices(rectangles,(True,True))==[0]
+    assert not stacked_indices(rectangles,(True,False))
+    assert not stacked_indices(rectangles,(False,True))
 
 
 def test_v1_migration_preserves_geometry_and_invalid_new_metadata_is_local(tmp_path):
