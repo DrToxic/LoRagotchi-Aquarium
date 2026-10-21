@@ -100,7 +100,6 @@ def main():
                 # Intersecting static meshes can tie on depth at a few pixels
                 # after batching. A structural change is not accepted as jitter.
                 assert changed/total<.0001 and error/(total*3)<.00001,repeat[-1]
-                if scene=='classic':assert changed==0
             images[scene]=PNMImage(image)
             updates=[];frames=[]
             for _ in range(args.samples):

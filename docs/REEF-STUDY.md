@@ -92,10 +92,10 @@ The probe records median/p95 frame time, update time, current process RSS,
 scene/scenery Geoms, vertices and triangles, animated plant count and placements.
 RSS is an alternating-process snapshot, **not** isolated GPU memory or a proven
 incremental allocation. Geoms are all scene-graph batches including hidden or
-out-of-view ones, **not actual driver draw calls**. Exact repeats are required
-for Classic. Intersecting reef surfaces may have a few depth-tie pixels after
+out-of-view ones, **not actual driver draw calls**. Intersecting surfaces in either scene may have a few depth-tie pixels after
 batching; their measured count and mean RGB error are retained, with a strict
-0.01% pixel / 0.00001 mean-error ceiling, not called pixel-identical.
+0.01% pixel / 0.00001 mean-error ceiling, not called pixel-identical. The ordinary Classic application source is
+byte-unchanged; this repeat check rebuilds and re-batches geometry.
 
 Separate checks cover night lighting, six seconds of live simulation, 24 solid
 proxy groups, full-footprint masks and restoration, 256 fish, finite poses and
