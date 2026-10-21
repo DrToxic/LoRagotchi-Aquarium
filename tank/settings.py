@@ -3,6 +3,7 @@ import json
 import math
 from pathlib import Path
 from .appearance import Appearance
+from .expiry import validate_hours
 
 PRESETS={
     "compatibility":dict(scale=.5,detail=8,plants=8,bubbles=0,lighting=False,caustics=False,fps=30),
@@ -26,6 +27,7 @@ class Settings:
     show_names:bool=False
     decorations:dict=field(default_factory=dict)
     fish_animations:bool=True
+    fish_lifespan_hours:float=0.0
     exit_styles:dict=field(default_factory=dict)
     appearance:Appearance=field(default_factory=Appearance)
     schema_version:int=2
@@ -78,6 +80,7 @@ LIMITS={'scale':(.25,2,False),'detail':(8,48,True),'plants':(0,100,True),
 
 
 def validate_setting(key,value):
+    if key=='fish_lifespan_hours':return validate_hours(value)
     if key in LIMITS:
         low,high,integer=LIMITS[key]
         if type(value) not in (float,int) or not math.isfinite(value) or not low<=value<=high or (integer and type(value) is not int):

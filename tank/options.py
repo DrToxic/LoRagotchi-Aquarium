@@ -11,6 +11,7 @@ from .deadzone_panel import DeadzonePanel
 from .text import display_text, entry_font
 from .decoration_panel import DecorationPanel
 from .animation_panel import AnimationPanel
+from .expiry_panel import ExpiryPanel
 from .radio_panel import RadioPanel
 from .clipboard import Clipboard
 from .appearance_panel import AppearancePanel
@@ -42,6 +43,8 @@ class OptionsPanel:
         for button in self.tabs.values():button["text_scale"]=11
         self.pages = {name:DirectFrame(parent=self.root,frameColor=(0,0,0,0)) for name in self.tabs}
         self.build_aquarium(self.pages['Aquarium'])
+        self.pages['Lifespan']=DirectFrame(parent=self.root,frameColor=(0,0,0,0))
+        self.expiry=ExpiryPanel(self,self.pages['Lifespan'])
         self.pages['Appearance']=DirectFrame(parent=self.root,frameColor=(0,0,0,0))
         self.appearance=AppearancePanel(self,self.pages['Appearance'])
         self.pages['Transfers']=DirectFrame(parent=self.root,frameColor=(0,0,0,0))
@@ -119,7 +122,7 @@ class OptionsPanel:
         a.end_button=self.button(parent,'End display session',18,464,396,a.end_session)
         a.message_label=self.label(parent,'Inbox: no messages',18,505,12,392)
         self.button(parent,'Appearance & advanced graphics',18,548,396,lambda:self.page('Appearance'))
-        self.label(parent,'Copies stay after originals return. Closing controls quits.',18,588,12)
+        self.button(parent,'Fish lifespan',18,594,396,lambda:self.page('Lifespan'))
         a.clear_confirm=0; a.scale_label_update()
 
     def build_radio(self,parent):
@@ -214,6 +217,7 @@ class OptionsPanel:
         self.refresh()
 
     def refresh(self):
+        if self.active_page=='Lifespan':self.expiry.refresh()
         self.radio.refresh_hint()
         if getattr(self,'active_page',None)=='Decorations':self.decorations.refresh_status()
         if getattr(self,'active_page',None)=='Transfers':self.transfers.refresh()
@@ -232,6 +236,7 @@ class OptionsPanel:
             if key in self.tabs:self.tabs[key]['frameColor']=(.14,.34,.37,1) if key==name else (.07,.16,.19,1)
         self.active_page=name
         if name=='Radio':self.radio.page(self.radio.active)
+        if name=='Lifespan':self.expiry.refresh()
         if name=='Appearance':self.appearance.refresh()
         if name=='Decorations':self.decorations.rebuild()
         if name=='Transfers':self.transfers.refresh()

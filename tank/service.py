@@ -11,6 +11,8 @@ from .connection import ConnectionProfile, discover, live_database
 from .demo import events
 from .protocol import decode_event, ProtocolError
 from .store import Store
+from .settings import Settings
+from .expiry import validate_hours
 from .transport import open_transport
 from .radio import RadioSession
 
@@ -51,7 +53,19 @@ class Service:
         last_history=last_rx=None
         mode = 'demo' if self.args.demo is not None else 'replay' if self.args.replay else 'live'
 
-        def roster(): self.notify({'kind': 'roster', 'fish': store.roster(), 'mode': mode})
+        hours = validate_hours(getattr(self.args, 'fish_lifespan_hours',
+                               Settings.load(self.args.settings).fish_lifespan_hours))
+        previous_roster = None
+        next_expiry = 0
+
+        def roster():
+            nonlocal previous_roster, next_expiry
+            state = dict(kind='roster', mode=mode, **store.display_state(hours))
+            if state != previous_roster:
+                self.notify(state)
+                previous_roster = state
+            next_expiry = time.monotonic() + 1
+
 
         def close_client(graceful=True):
             nonlocal client
@@ -82,7 +96,9 @@ class Service:
             while not self.stop.is_set():
                 while not self.commands.empty() and not self.stop.is_set():
                     command = self.commands.get_nowait()
-                    if command[0] == 'remove': store.remove(command[1]); roster()
+                    if command[0] == 'lifespan':
+                        hours = validate_hours(command[1]); roster()
+                    elif command[0] == 'remove': store.remove(command[1]); roster()
                     elif command[0] == 'clear': store.end_session(); roster()
                     elif command[0] == 'radio':
                         if command[1]==self.generation and not client and last_history and command[3]=='history':
@@ -182,6 +198,7 @@ class Service:
                         if generation == self.generation and not self.stop.is_set():
                             self.status('retrying', f'Radio offline · {type(exc).__name__}: {str(exc)[:180]} · retrying in 3s')
                         reconnect = time.monotonic()+3
+                if hours and time.monotonic() >= next_expiry: roster()
                 self.stop.wait(.1)
         except Exception as exc:
             self.status('fatal', f'Storage/replay error: {exc}. Resolve it and restart the aquarium.')

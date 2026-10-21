@@ -31,6 +31,8 @@ from .layout import LayoutSnapshot
 class Aquarium(ShowBase):
     def __init__(self,args):
         self.args=args;self.settings=Settings.load(args.settings)
+        args.fish_lifespan_hours=self.settings.fish_lifespan_hours
+        self.lifespan={}
         for warning in self.settings.load_warnings:print('Settings: '+warning,flush=True)
         self.display_path=Path(args.settings).with_name('display-layout.json')
         self.display=DisplayProfile.load(self.display_path)
@@ -408,6 +410,7 @@ class Aquarium(ShowBase):
                 kind=event.get("kind")
                 if kind=="roster":
                     new=event["fish"]
+                    self.lifespan=event.get("lifespan",{})
                     if event.get("mode",self.controls.mode)!=self.controls.mode:
                         # Switching demo/replay to live never leaves synthetic
                         # fish performing departures over the live collection.
@@ -434,6 +437,7 @@ class Aquarium(ShowBase):
         space_note=f" · {waiting} waiting for swim space" if waiting else ""
         moving=len(self.transitions.arrivals)+len(self.transitions.departures)+int(self.transitions.travel.active is not None)
         if moving:space_note+=f" · {moving} in transition"
+        if self.lifespan.get("expired"):space_note+=f" · {self.lifespan['expired']} expired"
         self.set_ui_text(self.footer,f"{len(self.roster)} shared fish{space_note}\n{self.status}")
         now=time.monotonic()
         if self.panel_visible and now>=self._next_ui_update:

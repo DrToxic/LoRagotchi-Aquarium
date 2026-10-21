@@ -1,4 +1,4 @@
-# LoRagotchi-Aquarium · v0.5.0
+# LoRagotchi-Aquarium · v0.6.0
 
 A native **Python + Panda3D** aquarium for shared LoRagotchi fish. Real 3D fish,
 independent cruise/glide swimming, animated tails/turns, original procedural scenery, adjustable graphics, durable
@@ -9,6 +9,16 @@ RX receives a normal DX visit, captures a snapshot, then proactively returns the
 original after about four seconds. Returning the original **does not remove the
 copy**. No local pet, care or breeding runs on RX. Copies do not age themselves;
 sharing again refreshes their appearance.
+
+## v0.6.0 · Configurable fish lifespan
+
+**Aquarium → Fish lifespan** adds optional expiry in hours or days (off by
+default). A new share renews the copy; duplicate packets, restarts and window
+transfers do not. Expired fish leave through the existing departure animation.
+Saved history remains, and manually removed copies stay hidden when changing
+this rule. Original pets and radio returns are unaffected.
+
+[Controls, migration and acceptance checks](docs/FISH-LIFESPAN.md).
 
 ## v0.5.0 · Fish travel between disconnected areas
 
