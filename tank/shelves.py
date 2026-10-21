@@ -62,6 +62,6 @@ class SandShelves:
         self.boxes=boxes
         self.root.getChildren().detach()
         for pos,size,hpr in boxes:ledge(self.root,pos,size,self.texture)
-        self.root.flattenStrong()
+        # Keep sand caps individually addressable for appearance tint updates.
         self.app.sim.physics.replace_boxes("sand-shelves",boxes)
         self.app.sim.obstacles_changed()

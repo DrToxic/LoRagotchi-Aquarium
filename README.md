@@ -1,4 +1,4 @@
-# LoRagotchi-Aquarium · v0.2.1
+# LoRagotchi-Aquarium · v0.3.0
 
 A native **Python + Panda3D** aquarium for shared LoRagotchi fish. Real 3D fish,
 independent cruise/glide swimming, animated tails/turns, original procedural scenery, adjustable graphics, durable
@@ -9,6 +9,16 @@ RX receives a normal DX visit, captures a snapshot, then proactively returns the
 original after about four seconds. Returning the original **does not remove the
 copy**. No local pet, care or breeding runs on RX. Copies do not age themselves;
 sharing again refreshes their appearance.
+
+## v0.3.0 · Appearance and bubble columns
+
+Native **Aquarium → Appearance** controls now expose lighting, clock-based
+smooth day/night, solid/gradient water, fog, sand tint, effect motion and quality.
+Stable seeded bubble columns can rise from the floor or generated shelves using
+a bounded shared particle pool. Classic/static remains the default.
+
+[Controls, limits and HA behavior](docs/APPEARANCE.md) ·
+[Verification and hardware retest](docs/TESTING-v0.3.0.md).
 
 ## v0.2.1 · Radio scrolling fix
 

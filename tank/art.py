@@ -137,7 +137,7 @@ def plant_leaf(height,width,bend,color,detail=10):
 def scenery(parent,settings):
     rng=random.Random(101)
     static=parent.attachNewNode("static-reef")
-    floor=floor_mesh();floor.reparentTo(static);floor.setTexture(sand_texture());floor.setTwoSided(True)
+    floor=floor_mesh();floor.reparentTo(parent);floor.setTexture(sand_texture());floor.setTwoSided(True)
     caustic=None
     if settings.caustics:
         caustic=floor_mesh();caustic.reparentTo(parent);caustic.setZ(.025);caustic.setTexture(sand_texture(caustic=True));caustic.setTransparency(TransparencyAttrib.MAlpha);caustic.setLightOff();caustic.setDepthWrite(False)

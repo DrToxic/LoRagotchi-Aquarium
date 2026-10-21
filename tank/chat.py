@@ -93,6 +93,7 @@ class ChatBubbles:
     def __init__(self, parent, camera, render, enabled=True):
         self.root = parent.attachNewNode("channel-chat")
         self.root.setLightOff()
+        self.root.setColorScaleOff(1)
         self.root.setFogOff()
         self.root.setTransparency(TransparencyAttrib.MAlpha)
         self.root.setDepthWrite(False)

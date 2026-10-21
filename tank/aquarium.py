@@ -22,10 +22,13 @@ from .bubbles import AirBubbles
 from .decorations import DecorationLibrary
 from .shelves import SandShelves
 from .transitions import FishTransitions
+from .appearance_scene import AppearanceScene
+from .bubble_columns import BubbleColumns
 
 class Aquarium(ShowBase):
     def __init__(self,args):
         self.args=args;self.settings=Settings.load(args.settings)
+        for warning in self.settings.load_warnings:print('Settings: '+warning,flush=True)
         self.display_path=Path(args.settings).with_name('display-layout.json')
         self.display=DisplayProfile.load(self.display_path)
         self.restore_rectangles=self.display.windows if args.wall_columns is None else []
@@ -43,13 +46,13 @@ class Aquarium(ShowBase):
         configure_text()
         super().__init__();self.disableMouse();self.setBackgroundColor(.012,.075,.115,1)
         self.sim=Simulation();self.models={};self.roster=[];self.inbox=[];self.status="Starting aquarium…"
-        self.selected=0;self.show_names=False;self.panel_visible=True;self.start=time.monotonic();self.screenshot_done=False
+        self.selected=0;self.show_names=self.settings.show_names;self.panel_visible=True;self.start=time.monotonic();self.screenshot_done=False
         self.scene=self.render.attachNewNode("aquarium");self.scene.setTwoSided(True)
         self.transitions=FishTransitions(self);self._model_snapshots={}
         ambient=AmbientLight("blue-water-ambient");ambient.setColor((.63,.71,.73,1));self.ambient=self.render.attachNewNode(ambient)
         sun=DirectionalLight("surface-light");sun.setColor((.95,.95,.82,1));self.sun=self.render.attachNewNode(sun);self.sun.setHpr(-35,-65,0)
         fill=DirectionalLight("soft-fill");fill.setColor((.15,.30,.34,1));self.fill=self.render.attachNewNode(fill);self.fill.setHpr(130,-20,0)
-        fog=Fog("water-depth");fog.setColor(.028,.15,.19);fog.setExpDensity(.012);self.render.setFog(fog)
+        fog=self.water_fog=Fog("water-depth");fog.setColor(.028,.15,.19);fog.setExpDensity(.012);self.render.setFog(fog)
         self.camera.setPos(0,-32,12);self.camera.lookAt(0,0,5.5)
         self.chat=ChatBubbles(self.scene,self.camera,self.render,self.settings.chat_bubbles)
         self.cam.node().setActive(False)
@@ -62,6 +65,8 @@ class Aquarium(ShowBase):
         self.internal_size=(0,0)
         self.shelves=SandShelves(self)
         self.decorations=DecorationLibrary(self)
+        self.appearance=AppearanceScene(self)
+        self.columns=BubbleColumns(self)
         self.rebuild_scene()
         for i in range(self.start_windows):
             self.add_window(self.restore_rectangles[i] if self.restore_rectangles else None)
@@ -92,11 +97,12 @@ class Aquarium(ShowBase):
         # Background gradient plane in world space.
         verts=[((-35,13,-1),(0,-1,0),(.015,.065,.10,1),(0,0)),((35,13,-1),(0,-1,0),(.015,.065,.10,1),(1,0)),
                ((35,13,23),(0,-1,0),(.06,.28,.33,1),(1,1)),((-35,13,23),(0,-1,0),(.06,.28,.33,1),(0,1))]
-        bg=mesh("deep-water",verts,[(0,1,2),(0,2,3)]);bg.reparentTo(self.decor);bg.setLightOff();bg.setFogOff()
-        if self.settings.caustics:
-            for x in (-14,-2,12):
-                ray=mesh("light-shaft",[((x,10,18),(0,-1,0),(.25,.53,.51,.025),(0,1)),((x-5,10,0),(0,-1,0),(.25,.53,.51,0),(0,0)),((x+4,10,0),(0,-1,0),(.25,.53,.51,0),(1,0)),((x+1,10,18),(0,-1,0),(.25,.53,.51,.055),(1,1))],[(0,1,2),(0,2,3)])
-                ray.reparentTo(self.decor);ray.setTransparency(TransparencyAttrib.MAlpha);ray.setLightOff();ray.setDepthWrite(False)
+        bg=self.background=mesh("deep-water",verts,[(0,1,2),(0,2,3)]);bg.reparentTo(self.decor);bg.setLightOff();bg.setFogOff()
+        self.light_shafts=[]
+        for x in (-14,-2,12):
+            ray=mesh("light-shaft",[((x,10,18),(0,-1,0),(.25,.53,.51,.025),(0,1)),((x-5,10,0),(0,-1,0),(.25,.53,.51,0),(0,0)),((x+4,10,0),(0,-1,0),(.25,.53,.51,0),(1,0)),((x+1,10,18),(0,-1,0),(.25,.53,.51,.055),(1,1))],[(0,1,2),(0,2,3)])
+            self.light_shafts.append(ray)
+            ray.reparentTo(self.decor);ray.setTransparency(TransparencyAttrib.MAlpha);ray.setLightOff();ray.setDepthWrite(False)
         self.bubbles=AirBubbles(self.decor,self.settings.bubbles,self.camera,self.render)
         if hasattr(self,"water_lens"):self.bubbles.set_view(self.water_lens)
         self.render.clearLight()
@@ -108,6 +114,7 @@ class Aquarium(ShowBase):
         self.models={};self._model_snapshots={};self._sync_fish_nodes()
         ClockObject.getGlobalClock().setMode(ClockObject.MLimited);ClockObject.getGlobalClock().setFrameRate(self.settings.fps)
         self.setup_output()
+        self.appearance.bind()
 
     def setup_output(self):
         if self._configuring_output or self.win is None or not self.win.getProperties().getOpen():return
@@ -148,7 +155,11 @@ class Aquarium(ShowBase):
             first=self.views[0]
             self.buffer,self.screen,self.internal_size=first.buffer,first.screen,first.internal_size
             self.view_cameras=[view.camera for view in self.views]
-        finally:self._configuring_output=False
+        finally:
+            self._configuring_output=False
+            if hasattr(self,"appearance") and hasattr(self,"background"):
+                self.appearance.applied=None
+                self.appearance.update(0)
 
     def add_window(self, rectangle=None):
         if len(self.views)>=MAX_WINDOWS:
@@ -286,7 +297,10 @@ class Aquarium(ShowBase):
         except (OSError,ValueError) as error:
             self.status=f"Fullscreen unavailable: {error}"
             print(self.status,flush=True)
-    def toggle_names(self):self.show_names=not self.show_names
+    def toggle_names(self):
+        self.show_names=not self.show_names
+        self.settings.show_names=self.show_names
+        self.settings.save(self.args.settings)
     def toggle_chat(self):
         self.settings.chat_bubbles=not self.settings.chat_bubbles
         self.chat.set_enabled(self.settings.chat_bubbles)
@@ -384,9 +398,9 @@ class Aquarium(ShowBase):
             else:
                 if event.kind=="return_status":self.status=f"RX return {event.status} · snapshot kept"
         self.update_fish(dt);t=self.sim.time
-        for node,phase in self.plants:node.setR(math.sin(t*.45+phase)*3)
+        self.appearance.update(dt)
+        self.columns.update(dt)
         self.bubbles.update(dt)
-        if self.caustic:self.caustic.setTexOffset(TextureStage.getDefault(),t*.009,t*.006)
         self.chat.update(dt)
         # Static text changes on data changes, not on every rendered frame.
         waiting=sum(s.parked for s in self.sim.swimmers.values())

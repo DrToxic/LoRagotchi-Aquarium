@@ -13,6 +13,7 @@ def main():
     parser.add_argument("--database",type=Path)
     parser.add_argument("--session",default="community")
     parser.add_argument("--settings",type=Path,default=Path(os.environ.get('XDG_CONFIG_HOME',Path.home()/'.config'))/'loragotchi-tank'/'settings.json')
+    parser.add_argument("--environment-file",type=Path,help=argparse.SUPPRESS)
     parser.add_argument("--preset",choices=("compatibility","low","balanced","high","ultra"))
     parser.add_argument("--width",type=int,default=1280);parser.add_argument("--height",type=int,default=720)
     parser.add_argument("--render-scale",type=float)

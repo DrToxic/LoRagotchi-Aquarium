@@ -13,6 +13,7 @@ from .decoration_panel import DecorationPanel
 from .animation_panel import AnimationPanel
 from .radio_panel import RadioPanel
 from .clipboard import Clipboard
+from .appearance_panel import AppearancePanel
 
 
 class OptionsPanel:
@@ -40,6 +41,8 @@ class OptionsPanel:
         for button in self.tabs.values():button["text_scale"]=11
         self.pages = {name:DirectFrame(parent=self.root,frameColor=(0,0,0,0)) for name in self.tabs}
         self.build_aquarium(self.pages['Aquarium'])
+        self.pages['Appearance']=DirectFrame(parent=self.root,frameColor=(0,0,0,0))
+        self.appearance=AppearancePanel(self,self.pages['Appearance'])
         self.radio=RadioPanel(self,self.pages['Radio'])
         self.deadzones=DeadzonePanel(self,self.pages['Deadzones'])
         self.decorations=DecorationPanel(self,self.pages['Decorations'])
@@ -112,7 +115,8 @@ class OptionsPanel:
         self.button(parent,'Names [N]',288,416,126,a.toggle_names)
         a.end_button=self.button(parent,'End display session',18,464,396,a.end_session)
         a.message_label=self.label(parent,'Inbox: no messages',18,505,12,392)
-        self.label(parent,'Copies stay after originals return. Closing controls quits.',18,576,12)
+        self.button(parent,'Appearance & advanced graphics',18,548,396,lambda:self.page('Appearance'))
+        self.label(parent,'Copies stay after originals return. Closing controls quits.',18,588,12)
         a.clear_confirm=0; a.scale_label_update()
 
     def build_radio(self,parent):
@@ -220,9 +224,10 @@ class OptionsPanel:
         self.blur()
         for key,frame in self.pages.items():
             frame.show() if key==name else frame.hide()
-            self.tabs[key]['frameColor']=(.14,.34,.37,1) if key==name else (.07,.16,.19,1)
+            if key in self.tabs:self.tabs[key]['frameColor']=(.14,.34,.37,1) if key==name else (.07,.16,.19,1)
         self.active_page=name
         if name=='Radio':self.radio.page(self.radio.active)
+        if name=='Appearance':self.appearance.refresh()
 
     def editing(self):return any(entry['focus'] for entry in self.entries)
     def send_chat_shortcut(self):
