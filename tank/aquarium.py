@@ -273,6 +273,13 @@ class Aquarium(ShowBase):
                 self._model_snapshots[fish.owner]=fish
                 if fish.owner in self.transitions.arrivals:model.hide()
         self.sim.roster(self.transitions.swimming())
+        self.transitions.travel.population_changed()
+        journey=self.transitions.travel.active
+        if journey and journey.owner in self.models:
+            model=self.models[journey.owner][0]
+            if journey.position:model.setPos(*journey.position)
+            if journey.pose:model.setHpr(*journey.pose)
+            if journey.phase in ('hidden','parked'):model.hide()
         for view in self.views:view.names.sync(visible)
 
     def build_panel(self):
@@ -381,9 +388,11 @@ class Aquarium(ShowBase):
         poses=self.sim.step(dt)
         for key,pose in poses.items():
             model,tail,fins=self.models[key]
-            if self.sim.swimmers[key].parked != model.isHidden():
-                model.hide() if self.sim.swimmers[key].parked else model.show()
-            model.setPos(pose.x,pose.y,pose.z);model.setHpr(pose.heading,pose.bank,pose.pitch)
+            swimmer=self.sim.swimmers[key]
+            if not swimmer.travelling:
+                if swimmer.parked != model.isHidden():
+                    model.hide() if swimmer.parked else model.show()
+                model.setPos(pose.x,pose.y,pose.z);model.setHpr(pose.heading,pose.bank,pose.pitch)
             tail.setH(math.sin(pose.phase)*22*pose.speed)
             for i,fin in enumerate(fins):fin.setH(math.sin(pose.phase*.65+i)*12)
         self.transitions.update(dt)
@@ -423,7 +432,7 @@ class Aquarium(ShowBase):
         # Static text changes on data changes, not on every rendered frame.
         waiting=sum(s.parked for s in self.sim.swimmers.values())
         space_note=f" · {waiting} waiting for swim space" if waiting else ""
-        moving=len(self.transitions.arrivals)+len(self.transitions.departures)
+        moving=len(self.transitions.arrivals)+len(self.transitions.departures)+int(self.transitions.travel.active is not None)
         if moving:space_note+=f" · {moving} in transition"
         self.set_ui_text(self.footer,f"{len(self.roster)} shared fish{space_note}\n{self.status}")
         now=time.monotonic()

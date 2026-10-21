@@ -57,6 +57,8 @@ class FishTransitions:
         self.arrivals={};self.departures={}
         self.root=app.scene.attachNewNode("fish-transitions")
         self.templates={}
+        from .travel import FishTravel
+        self.travel=FishTravel(self)
 
     @property
     def enabled(self):
@@ -100,6 +102,7 @@ class FishTransitions:
 
     def reconcile(self,roster):
         self.desired={f.owner:f for f in roster}
+        self.travel.reconcile()
         changed=False
         if not self.enabled:
             changed=self.shown!=self.desired or bool(self.arrivals or self.departures)
@@ -110,6 +113,7 @@ class FishTransitions:
             for owner in self.app.sim.swimmers:self._hold(owner,False)
             return changed
         for owner in list(self.shown):
+            if self.travel.active and self.travel.active.owner==owner:continue
             if self.shown[owner]==self.desired.get(owner) or owner in self.departures:continue
             if owner in self.arrivals and owner in self.desired:continue
             swimmer=self.app.sim.swimmers.get(owner)
@@ -255,6 +259,9 @@ class FishTransitions:
 
     def update(self,dt):
         dt=max(0.,min(.1,dt));changed=False
+        travelling=self.travel.active is not None
+        self.travel.update(dt)
+        if travelling and self.travel.active is None:changed=True
         for owner,state in list(self.arrivals.items()):
             if self._entry(owner,state,dt):
                 self._hold(owner,False)
@@ -269,6 +276,7 @@ class FishTransitions:
             self.update(0.)
 
     def destroy(self):
+        self.travel.destroy()
         for node in self.templates.values():node.removeNode()
         self.templates.clear();self.arrivals.clear();self.departures.clear()
         self.shown.clear();self.desired.clear();self.root.removeNode()

@@ -1,4 +1,4 @@
-# LoRagotchi-Aquarium · v0.4.0
+# LoRagotchi-Aquarium · v0.5.0
 
 A native **Python + Panda3D** aquarium for shared LoRagotchi fish. Real 3D fish,
 independent cruise/glide swimming, animated tails/turns, original procedural scenery, adjustable graphics, durable
@@ -9,6 +9,24 @@ RX receives a normal DX visit, captures a snapshot, then proactively returns the
 original after about four seconds. Returning the original **does not remove the
 copy**. No local pet, care or breeding runs on RX. Copies do not age themselves;
 sharing again refreshes their appearance.
+
+## v0.5.0 · Fish travel between disconnected areas
+
+**Animations → Travel between disconnected areas** offers Off (the default),
+Occasional and Frequent. A fish swims fully out of one water area before entering
+another, keeping its identity, model and saved visit. One journey runs at a time;
+full-outline routes and landing space are reserved before it leaves.
+
+Adjacent/overlapping windows remain one panoramic tank, not separate aquariums.
+Window gaps and splitting deadzones can create separate areas. Transfers use
+clear output edges or rectangular opaque blackouts; narrow/crowded layouts may
+have no safe route. Existing pickup actors remain for ordinary updates/removals;
+this first travel pass uses simple swim-out/swim-in choreography.
+
+[Controls and limitations](docs/DESKTOP-LAYOUT.md) ·
+[Verification and Windows retest](docs/TESTING-v0.5.0.md).
+
+Standalone only. No HA, firmware, radio, stored-visit or expiry changes.
 
 ## v0.4.0 · Layout-aware scenery and edge shelves
 
@@ -25,8 +43,8 @@ bubble columns can use these surfaces without increasing their particle budget.
 [Controls and limitations](docs/DESKTOP-LAYOUT.md) ·
 [Verification and Windows retest](docs/TESTING-v0.4.0.md).
 
-This is a standalone desktop release. HA, disconnected-area fish transfers,
-visitor expiry and new reef artwork are not changed by this build.
+That standalone release added scenery placement and shelves; it did not include
+fish transfers, visitor expiry or new reef artwork.
 
 ## v0.3.0 · Appearance and bubble columns
 

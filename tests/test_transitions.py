@@ -13,6 +13,7 @@ from tank.settings import Settings
 from tank.simulation import Simulation
 from tank.transitions import FishTransitions, STYLES, MAX_EXITS
 from tank.views import desktop_lenses
+from tank.deadzones import DisplayProfile
 
 
 class NativeLoader:
@@ -27,7 +28,7 @@ def app():
     camera=render.attachNewNode("camera");camera.setPos(0,-32,12)
     lens=desktop_lenses([(0,0,1280,720)])[0];aim_at_sand(camera,render,lens)
     app=SimpleNamespace(render=render,scene=scene,camera=camera,water_lens=lens,
-        settings=Settings(detail=8),models={},_model_snapshots={},sim=Simulation(reefs=False),
+        settings=Settings(detail=8),display=DisplayProfile(),models={},_model_snapshots={},sim=Simulation(reefs=False),
         roster=[],loader=NativeLoader(),views=[SimpleNamespace(names=SimpleNamespace(sync=lambda fish:None))])
     app.transitions=FishTransitions(app,random.Random(1234))
     for name in ("sync_models","_sync_fish_nodes","update_fish"):

@@ -48,6 +48,7 @@ class Swimmer:
         self.parked = False
         self.replan_wait = 0.
         self.arriving = False
+        self.travelling = False
 
 
 class Simulation:
@@ -156,6 +157,7 @@ class Simulation:
         from panda3d.core import BitMask32, Vec3
         unavailable=set()
         for key,s in self.swimmers.items():
+            if s.travelling:continue
             origin=(s.x,s.y,s.z)
             if (not s.parked and self.volume.allows(origin,s.outline) and
                 (not self._obstacles_dirty or self.physics.clear_at(
@@ -279,7 +281,7 @@ class Simulation:
         if not dt:return
         from panda3d.core import Vec3
         for key,s in self.swimmers.items():
-            if s.parked:continue
+            if s.parked or s.travelling:continue
             start=previous[key];end=(s.x,s.y,s.z)
             if not self.volume.sweep_clear(start,end,s.outline):
                 # Stop at the last visible point, never tunnel across desktop

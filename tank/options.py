@@ -14,6 +14,7 @@ from .animation_panel import AnimationPanel
 from .radio_panel import RadioPanel
 from .clipboard import Clipboard
 from .appearance_panel import AppearancePanel
+from .travel_panel import TravelPanel
 
 
 class OptionsPanel:
@@ -43,6 +44,8 @@ class OptionsPanel:
         self.build_aquarium(self.pages['Aquarium'])
         self.pages['Appearance']=DirectFrame(parent=self.root,frameColor=(0,0,0,0))
         self.appearance=AppearancePanel(self,self.pages['Appearance'])
+        self.pages['Transfers']=DirectFrame(parent=self.root,frameColor=(0,0,0,0))
+        self.transfers=TravelPanel(self,self.pages['Transfers'])
         self.radio=RadioPanel(self,self.pages['Radio'])
         self.deadzones=DeadzonePanel(self,self.pages['Deadzones'])
         self.decorations=DecorationPanel(self,self.pages['Decorations'])
@@ -213,6 +216,7 @@ class OptionsPanel:
     def refresh(self):
         self.radio.refresh_hint()
         if getattr(self,'active_page',None)=='Decorations':self.decorations.refresh_status()
+        if getattr(self,'active_page',None)=='Transfers':self.transfers.refresh()
         self.app.set_ui_text(self.mode_label,('Demo/replay will be replaced by the saved live collection.'
                                  if self.mode!='live' else 'LIVE collection · saved copies remain when disconnected.'))
         self.enabled(self.connect_button,self.state not in ('connecting','connected','retrying','disconnecting','fatal'))
@@ -230,6 +234,7 @@ class OptionsPanel:
         if name=='Radio':self.radio.page(self.radio.active)
         if name=='Appearance':self.appearance.refresh()
         if name=='Decorations':self.decorations.rebuild()
+        if name=='Transfers':self.transfers.refresh()
 
     def editing(self):return any(entry['focus'] for entry in self.entries)
     def send_chat_shortcut(self):

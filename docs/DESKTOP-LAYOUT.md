@@ -1,4 +1,4 @@
-# Desktop layout-aware scenery — v0.4.0
+# Desktop layout and fish travel — v0.5.0
 
 ## Automatic placement
 
@@ -56,6 +56,47 @@ Columns stop at the first excluded window/mask boundary instead of reappearing
 in a disconnected area above. The status reports placed/requested columns when
 not all requested emitters fit. Ambient bubbles remain the separate legacy effect.
 
+## Fish transfers
+
+Open **Animations → Travel between disconnected areas**. Transfers default **Off**
+on both new installations and upgrades. **Occasional** attempts a journey every
+60–120 seconds; **Frequent** every 20–40 seconds. Attempts can be skipped: at most
+one voluntary journey runs at a time, each fish has a five-minute cooldown, and
+both source and destination need clear routes before departure. A status explains
+why transfers are unavailable. Turning transfers off lets an active trip finish;
+turning fish animations off stops it and restores a safe ordinary placement.
+
+The aquarium stays one physical-desktop panorama. Touching/overlapping windows
+are connected, corner-only contact is not a passage, and a U-shaped arrangement
+can still be connected around a gap. A mask can split one window. Conservative
+curved-mask analysis may decline a transfer if separation cannot be proved.
+Ordinary swimming never crosses excluded areas.
+
+The full fish outline must leave the source image before its existing model and
+swimmer relocate to the destination entry. There is no whole-fish fade, saved
+visit renewal or synthetic radio event. The fish swims out/in; existing pickup
+actors still handle normal lifecycle updates/removals. Carrier travel is deferred
+until the complete carrier/boarding choreography has region-local routes.
+
+Portals are exposed output edges and sufficiently large **opaque rectangular**
+blackouts. Non-blackout masks, curved blackouts and inverted-mask boundaries are
+not portals in this pass, though all still affect connectivity and avoidance.
+A fish may use another clear output edge instead. Whole swept outlines are checked
+against every output and all scenery/fish bodies; conservative temporary corridor
+solids keep other swimmers from occupying a reserved route. Very narrow strips,
+crowded tanks, shelves or large fish can make a route unavailable. No forced trip.
+
+Valid journeys survive unrelated layout edits and graphics rebuilds. An invalidated
+route stops at a valid visible pose, retreats if possible, or parks if an edit has
+removed its visible water. Closing all outputs retains the fish; opening usable
+water lets it re-enter through a safe route. This is emergency layout recovery,
+not a scheduled transfer. Removing a fish cancels re-entry. Real updates during
+departure coalesce while hidden; updates during entry retain old-out/new-in order.
+
+Connectivity is cached by layout revision. Route attempts inspect at most four
+eligible fish and bounded landing candidates, not every fish on every frame.
+Travel preferences belong to the display profile, not exportable appearance themes.
+
 ## Persistence and scope
 
 `display-layout.json` now uses version 2. Existing version-1 rectangles/masks are
@@ -63,6 +104,4 @@ retained; the first save preserves the original as `display-layout.v1.json`.
 Reading alone does not rewrite the profile. Invalid new placement metadata is
 discarded independently rather than erasing valid old window geometry.
 
-No changes to saved fish, radio behavior, firmware, HA or fish expiry. Animated
-transfers between disconnected areas remain a later feature; ordinary fish still
-stay within their valid visible swimming area.
+No changes to saved fish, radio behavior, firmware, HA or fish expiry.

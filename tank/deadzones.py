@@ -124,6 +124,7 @@ class DisplayProfile:
     protect_scenery: bool = True
     placements: dict = field(default_factory=dict)
     window_ids: list[str] = field(default_factory=list)
+    transfers: str = 'Off'
 
     def identities(self):
         from dataclasses import replace
@@ -164,7 +165,9 @@ class DisplayProfile:
                 if len(placements)>=512:break
             ids=raw.get('window_ids',[])
             if not isinstance(ids,list) or any(not isinstance(v,str) or not v or len(v)>80 for v in ids) or len(set(ids))!=len(ids):ids=[]
-            return cls(raw.get('constrain',True),zones,windows,protected if type(protected) is bool else True,placements,ids[:MAX_WINDOWS])
+            transfers=raw.get('transfers','Off')
+            if transfers not in ('Off','Occasional','Frequent'):transfers='Off'
+            return cls(raw.get('constrain',True),zones,windows,protected if type(protected) is bool else True,placements,ids[:MAX_WINDOWS],transfers)
         except (OSError,ValueError,TypeError,KeyError):return cls()
 
     def save(self,path):

@@ -17,7 +17,7 @@ class AnimationPanel:
                 self.app.settings.exit_styles.get(style,True),self.style,[style])
         controls.label(parent,"All styles off: fish simply swim up and out.\nPickups already in progress finish their sequence.\nUp to four exits at once; other fish keep swimming.",
                        18,530,12,396)
-        controls.label(parent,"Visual only. Saved copies and radio returns are unchanged.",18,589,11,396)
+        controls.button(parent,"Travel between disconnected areas",18,597,396,lambda:controls.page('Transfers'))
 
     def check(self,parent,text,x,y,value,command,args=None):
         return DirectCheckButton(parent=parent,text=text,text_align=0,text_scale=14,
