@@ -1,5 +1,12 @@
 # LoRagotchi-Aquarium · v0.7.0
 
+## Local original reef study
+
+This branch includes an opt-in native **Tidal Garden** study, not a release or
+HA setting. Run `uv run python -m tools.reef_study --interactive`.
+[Art direction, commands and measurement limits](docs/REEF-STUDY.md).
+Classic remains the ordinary application default.
+
 ## Themes and fish styles
 
 Six built-in themes, persistent editable custom themes, JSON import/export, and
