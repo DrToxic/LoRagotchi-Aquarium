@@ -26,10 +26,10 @@ class ThemePanel:
         controls.button(parent,'Import new theme',18,564,190,self.import_file)
         controls.button(parent,'Export selected',224,564,190,self.export_file)
         self.note=controls.label(parent,'',18,607,11,396)
-        controls.label(parent,'Edit colours in Appearance, Apply & save, then save here.\nLoading a theme preserves quality, schedules and fish data.',18,647,10,396)
+        controls.label(parent,'Edit and apply Appearance, then save a theme here.',18,644,10,396)
         self.refresh()
 
-    def status(self,text):self.note['text']=str(text)[:220];self.note.resetFrameSize()
+    def status(self,text):self.note['text']=str(text)[:130];self.note.resetFrameSize()
 
     def refresh(self):
         items,warnings=self.library.list();self.items={item['manifest']['id']:item for item in items}
