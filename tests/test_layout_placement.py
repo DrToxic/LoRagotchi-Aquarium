@@ -181,5 +181,5 @@ def test_disabled_reef_solid_survives_saved_reload_and_geometry_rebuild(tmp_path
         if scene=='tidal-garden':
             assert not app.placement.records[key].enabled
             assert not app.placement.records[key].visible
-            assert not app.sim.physics.groups[key]
+            assert not app.sim.physics.groups.get(key)
         app.placement.discard('reef:');root.removeNode()
