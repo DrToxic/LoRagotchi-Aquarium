@@ -165,6 +165,7 @@ def scenery(parent,settings,placement=None):
         rock.reparentTo(static);rock.setPos(*pos);rock.setH(heading)
         if placement:
             from .collision import ellipsoid_hull
+            rock.setPythonTag('bubble-origins', [('crevice', (0,0,scale[2]+.15))])
             placement.register(f'reef:rock:{index}',rock,[(ellipsoid_hull(scale,1.12),(0,0,0),(heading,0,0))],batched=True)
     plants=[]
     for i in range(settings.plants):

@@ -68,6 +68,12 @@ class Appearance:
     column_width: float = .2
     column_size: float = 1.
     column_speed: float = 1.
+    bubble_collisions: bool = True
+    bubble_dynamics: bool = True
+    background_motion: str = 'off'
+    background_speed: float = 1.
+    background_strength: float = .35
+    fish_activity: str = 'gentle'
 
     @classmethod
     def from_dict(cls, raw, *, strict=True, warnings=None):
@@ -98,7 +104,9 @@ CHOICES = {
     'mode': ('static', 'clock', 'ha_sun'),
     'background_style': ('classic', 'solid', 'gradient'),
     'shafts': ('preset', 'on', 'off'),
-    'column_placement': ('floor', 'shelves', 'mixed'),
+    'column_placement': ('floor', 'shelves', 'mixed', 'objects', 'all'),
+    'background_motion': ('off', 'rays', 'ripple'),
+    'fish_activity': ('off', 'gentle', 'lively'),
 }
 RANGES = {
     'transition_minutes': (0, 180), 'brightness': (0, 2),
@@ -110,6 +118,7 @@ RANGES = {
     'column_count': (0, 16), 'column_seed': (0, 2147483647),
     'column_particles': (1, 300), 'column_width': (.05, .8),
     'column_size': (.25, 3), 'column_speed': (.1, 3),
+    'background_speed': (0, 3), 'background_strength': (0, 1),
 }
 INTEGERS = {'column_count', 'column_seed', 'column_particles'}
 
@@ -122,7 +131,7 @@ def validate(key, value):
         if isinstance(value, bool) or not isinstance(value, (float, int)) or not math.isfinite(value) or not low <= value <= high:
             raise ValueError(f'Must be a finite number from {low} to {high}')
         if key in INTEGERS and type(value) is not int: raise ValueError('Must be an integer')
-    elif key == 'fog_enabled':
+    elif key in ('fog_enabled', 'bubble_collisions', 'bubble_dynamics'):
         if not isinstance(value, bool): raise ValueError('Must be true or false')
     elif key == 'timezone': timezone_valid(value)
     elif key in ('day_start', 'night_start'): minutes(value)

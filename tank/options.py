@@ -16,6 +16,8 @@ from .radio_panel import RadioPanel
 from .clipboard import Clipboard
 from .appearance_panel import AppearancePanel
 from .theme_panel import ThemePanel
+from .nursery_panel import NurseryPanel
+from .games_panel import GamesPanel
 from .travel_panel import TravelPanel
 
 
@@ -52,6 +54,10 @@ class OptionsPanel:
         self.themes=ThemePanel(self,self.pages['Themes'])
         self.pages['Transfers']=DirectFrame(parent=self.root,frameColor=(0,0,0,0))
         self.transfers=TravelPanel(self,self.pages['Transfers'])
+        self.pages['Nursery']=DirectFrame(parent=self.root,frameColor=(0,0,0,0))
+        self.nursery=NurseryPanel(self,self.pages['Nursery'])
+        self.pages['Games']=DirectFrame(parent=self.root,frameColor=(0,0,0,0))
+        self.games=GamesPanel(self,self.pages['Games'])
         self.radio=RadioPanel(self,self.pages['Radio'])
         self.deadzones=DeadzonePanel(self,self.pages['Deadzones'])
         self.decorations=DecorationPanel(self,self.pages['Decorations'])
@@ -125,7 +131,9 @@ class OptionsPanel:
         a.end_button=self.button(parent,'End display session',18,464,396,a.end_session)
         a.message_label=self.label(parent,'Inbox: no messages',18,505,12,392)
         self.button(parent,'Appearance & advanced graphics',18,548,396,lambda:self.page('Appearance'))
-        self.button(parent,'Fish lifespan',18,594,396,lambda:self.page('Lifespan'))
+        self.button(parent,'Fish lifespan',18,594,190,lambda:self.page('Lifespan'))
+        self.button(parent,'Breeding nursery',224,594,190,lambda:self.page('Nursery'))
+        self.button(parent,'Mesh message games',18,634,396,lambda:self.page('Games'))
         a.clear_confirm=0; a.scale_label_update()
 
     def build_radio(self,parent):
@@ -220,6 +228,7 @@ class OptionsPanel:
         self.refresh()
 
     def refresh(self):
+        self.nursery.refresh()
         if self.active_page=='Lifespan':self.expiry.refresh()
         self.radio.refresh_hint()
         if getattr(self,'active_page',None)=='Decorations':self.decorations.refresh_status()

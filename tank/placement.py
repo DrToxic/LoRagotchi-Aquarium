@@ -21,6 +21,7 @@ class PlacedObject:
     visible: bool = False
     reason: str = ''
     support_bottom: float = 0.
+    bubble_origins: tuple = ()
 
     def bounds(self, position):
         return (tuple(a+b for a,b in zip(position,self.low)),
@@ -59,6 +60,9 @@ class ScenePlacement:
         if key.startswith('reef:'):
             enabled=self.app.settings.scenery.get(key,enabled)
         record=PlacedObject(key,node,pos,low,high,tuple(shapes),batched,enabled)
+        if node.hasPythonTag('bubble-origins'):
+            record.bubble_origins=tuple(node.getPythonTag('bubble-origins'))
+            node.clearPythonTag('bubble-origins')
         record.support_bottom=bottom
         hint=self.app.display.placements.get(key,{})
         record.position=tuple(hint.get('position',pos));record.support=hint.get('support','floor')

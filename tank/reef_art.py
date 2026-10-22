@@ -251,6 +251,10 @@ def scenery(parent,settings,placement=None):
     def place(key,node,pos,solid=False,sway=False):
         node.reparentTo(parent if sway else static);node.setPos(*pos)
         shapes=[(solid_hull(node),(0,0,0),(0,0,0))] if solid else []
+        if placement and solid and (key.startswith('rock:') or key.startswith('sponge:')):
+            low, high = node.getTightBounds(node)
+            node.setPythonTag('bubble-origins', [('opening' if key.startswith('sponge:') else 'crevice',
+                ((low.x+high.x)/2, (low.y+high.y)/2, high.z+.14))])
         if placement:placement.register('reef:study:'+key,node,shapes,batched=not sway,sway=sway)
         return node
     for i,(pos,scale,seed) in enumerate(ROCKS):

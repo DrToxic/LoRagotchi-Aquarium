@@ -49,6 +49,15 @@ class Swimmer:
         self.replan_wait = 0.
         self.arriving = False
         self.travelling = False
+        self.activity = 'cruise'
+        self.activity_left = 0.
+        self.activity_wait = rng.uniform(4, 18)
+        self.activity_point = None
+        self.activity_peer = None
+        self.pace_factor = 1.
+        self.avoid_turn = -1.
+        self.courtship = None
+
 
 
 class Simulation:
@@ -64,6 +73,65 @@ class Simulation:
         self._view_config = None
         self._layout_dirty = False
         self._obstacles_dirty = False
+        self.activity_mode = 'gentle'
+        self.interests = []
+
+    def set_activity(self, mode, interests=()):
+        self.activity_mode = mode
+        self.interests = list(interests)[:64]
+        if mode == 'off':
+            for s in self.swimmers.values():
+                s.activity = 'cruise'
+                s.activity_left = 0.
+                s.pace_factor = 1.
+
+    def _activity(self, key, s, dt, neighbours):
+        if s.courtship is not None:
+            distance=math.dist((s.x,s.y,s.z),s.courtship)
+            s.pace_factor=0. if distance<1.3 else min(1.,distance/4)
+            return s.courtship
+        if self.activity_mode == 'off' or s.travelling:
+            return s.goal
+        s.activity_wait -= dt
+        s.activity_left -= dt
+        if s.activity_left <= 0:
+            s.activity = 'cruise'
+            s.pace_factor = 1.
+            s.activity_peer = None
+            if s.activity_wait <= 0:
+                # Bounded, desynchronised bouts, never alter the stored fish.
+                choices = ['glide', 'dart', 'play']
+                if self.interests: choices += ['investigate', 'bubbles']
+                peers = [other for other, *_ in neighbours if other != key and
+                         not self.swimmers[other].arriving and not self.swimmers[other].travelling]
+                if peers: choices += ['chase']
+                s.activity = s.rng.choice(choices)
+                s.activity_left = s.rng.uniform(2, 5)
+                s.activity_wait = s.activity_left+s.rng.uniform(12, 30)/(1.7 if self.activity_mode == 'lively' else 1)
+                s.pace_factor = {'glide':.22, 'dart':1.65, 'chase':1.25}.get(s.activity, .85)
+                s.activity_point = (s.x, s.y, s.z)
+                if s.activity in ('bubbles', 'investigate'):
+                    candidates = [p for kind,p in self.interests if (kind == 'bubble') == (s.activity == 'bubbles')]
+                    if candidates: s.activity_point = min(candidates, key=lambda p:math.dist(p,(s.x,s.y,s.z)))
+                    else: s.activity = 'cruise'
+                if s.activity == 'chase': s.activity_peer = s.rng.choice(peers)
+        point = s.goal
+        if s.activity == 'chase':
+            peer = self.swimmers.get(s.activity_peer)
+            if peer and not (peer.parked or peer.arriving or peer.travelling):
+                # Follow a wake at a body-sized distance; never aim at the fish.
+                gap = s.radius+peer.radius+1.2
+                point = (peer.x-math.cos(peer.heading)*gap, peer.y-math.sin(peer.heading)*gap, peer.z+.3)
+            else: s.activity_left = 0.
+        elif s.activity in ('play', 'investigate', 'bubbles'):
+            x,y,z = s.activity_point
+            phase = s.phase*.1
+            point = (x+math.cos(phase)*1.8, y+math.sin(phase)*1.2,
+                     z+(1.6 if s.activity == 'bubbles' else .7)+math.sin(phase)*.4)
+        if point != s.goal and (not self.volume.allows(point,s.outline) or
+                not self.volume.path_clear((s.x,s.y,s.z),point,s.outline)):
+            return s.goal
+        return point
 
     def obstacles_changed(self):
         self._layout_dirty = self._obstacles_dirty = True
@@ -219,7 +287,8 @@ class Simulation:
             distance = math.dist((s.x, s.y, s.z), s.goal)
             if s.replan_wait<=0 and (s.remaining <= 0 or distance < 1.3):
                 self._choose_goal(s)
-            gx, gy, gz = s.goal
+            cell = (int(s.x//4), int(s.y//4), int(s.z//4))
+            gx, gy, gz = self._activity(key, s, dt, buckets.get(cell, ()))
             dx, dy = gx-s.x, gy-s.y
             distance_xy = max(.01, math.hypot(dx, dy))
             dx, dy = dx/distance_xy, dy/distance_xy
@@ -248,14 +317,26 @@ class Simulation:
             # Preview solid scenery along the current course, not just neighbours.
             s.obstacle_wait -= dt
             if s.obstacle_wait <= 0:
-                look = (s.x+forward_x*(s.speed*1.4+.4), s.y+forward_y*(s.speed*1.4+.4), s.z+s.vz)
-                s.obstacle_ahead = not self.physics.clear_at(s.stage, look, s.heading, static_only=True)
+                reach = s.speed*1.8+s.radius+.4
+                look = (s.x+forward_x*reach, s.y+forward_y*reach, s.z+s.vz)
+                # Sample the whole approach, not only its far endpoint: a thin
+                # plate between the nose and lookahead cannot be skipped.
+                s.obstacle_ahead = any(not self.physics.clear_at(s.stage,
+                    (s.x+forward_x*reach*f,s.y+forward_y*reach*f,s.z+s.vz*f),
+                    s.heading,static_only=True) for f in (.3,.65,1.))
+                if s.obstacle_ahead:
+                    for sign in (-1.,1.):
+                        h=s.heading+sign*.8
+                        side=(s.x+math.cos(h)*reach,s.y+math.sin(h)*reach,s.z+.4)
+                        if (self.physics.clear_at(s.stage,side,h,static_only=True) and
+                            self.volume.path_clear((s.x,s.y,s.z),side,s.outline)):
+                            s.avoid_turn=sign;break
                 if not self.volume.path_clear((s.x,s.y,s.z),look,s.outline):
                     s.remaining=0.
                     s.obstacle_ahead=True
                 s.obstacle_wait = .2
             if s.obstacle_ahead:
-                sx += forward_y*1.2; sy -= forward_x*1.2
+                sx -= forward_y*1.6*s.avoid_turn; sy += forward_x*1.6*s.avoid_turn
                 sz += .7
                 caution = max(caution, .65)
             # Gentle wall approach. Bullet enforces the actual body clearance.
@@ -270,7 +351,7 @@ class Simulation:
             s.heading = (s.heading+turn*dt+math.pi)%math.tau-math.pi
             # Desynchronised short glides without discarding the destination.
             glide = .5 if math.sin(self.time*.19+s.phase*.025) > .92 else 1.
-            target_speed = s.pace*glide*(1-.4*min(1., abs(error)/1.5))*(1-.7*caution)
+            target_speed = s.pace*s.pace_factor*glide*(1-.4*min(1., abs(error)/1.5))*(1-.7*caution)
             s.speed += (target_speed-s.speed)*(1-math.exp(-dt*2))
             target_vz = clamp((gz-s.z)*.5 + clamp(sz, -1., 1.)*.7 + wall[2], -.65, .65)
             s.vz += (target_vz-s.vz)*(1-math.exp(-dt*2))

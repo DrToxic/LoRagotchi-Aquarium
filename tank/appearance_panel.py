@@ -21,18 +21,21 @@ GROUPS = {
         ('day_colour','Day tint'),('night_colour','Night tint')),
     'Water': (
         ('background_style','Background'),('background_top','Top / solid colour'),
-        ('background_bottom','Bottom colour'),('fog_enabled','Water fog'),
+        ('background_bottom','Bottom colour'),('background_motion','Water motion'),
+        ('background_speed','Motion speed'),('background_strength','Motion intensity'),('fog_enabled','Water fog'),
         ('fog_colour','Fog colour'),('fog_density','Fog density'),('sand_tint','Sand tint')),
     'Bubbles': (
         ('column_count','Column count'),('column_placement','Placement'),
         ('column_seed','Position seed'),('column_particles','Total column bubbles'),
-        ('column_width','Column spread'),('column_size','Bubble size'),('column_speed','Rise speed')),
+        ('column_width','Column spread'),('column_size','Bubble size'),('column_speed','Rise speed'),
+        ('bubble_collisions','Deflect around objects'),('bubble_dynamics','Vary bubble movement'),
+        ('fish_activity','Fish activity')),
     'Quality': (
         ('scene','Scenery style'),('scale','Render scale'),('detail','Mesh detail'),('plants','Plant count'),
         ('bubbles','Ambient bubbles'),('lighting','Scene lighting'),('caustics','Caustics'),
         ('fps','FPS limit'),('vsync','VSync (restart)')),
 }
-BOOLS = {'fog_enabled','lighting','caustics','vsync'}
+BOOLS = {'fog_enabled','lighting','caustics','vsync','bubble_collisions','bubble_dynamics'}
 
 
 class AppearancePanel:

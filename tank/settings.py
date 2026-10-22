@@ -3,6 +3,7 @@ import json
 import math
 from pathlib import Path
 from .appearance import Appearance
+from .nursery import NurserySettings
 from .expiry import validate_hours
 
 PRESETS={
@@ -32,6 +33,7 @@ class Settings:
     fish_lifespan_hours:float=0.0
     exit_styles:dict=field(default_factory=dict)
     appearance:Appearance=field(default_factory=Appearance)
+    nursery:NurserySettings=field(default_factory=NurserySettings)
     theme_id:str="current"
     fish_style:str="classic"
     schema_version:int=2
@@ -70,7 +72,8 @@ class Settings:
         for key,value in raw.items():
             if key not in known:continue
             try:
-                if key=='appearance':
+                if key=='nursery':value=NurserySettings.from_dict(value)
+                elif key=='appearance':
                     value=Appearance.from_dict(value,strict=False,warnings=s.load_warnings)
                 else:value=validate_setting(key,value)
                 setattr(s,key,value)

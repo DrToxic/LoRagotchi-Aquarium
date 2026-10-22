@@ -13,7 +13,7 @@ def test_theme_does_not_touch_schedule_budgets_or_collection():
     for raw in BUILTINS.values():
         result=apply(settings,raw)
         for key,value in asdict(settings).items():
-            if key not in ('appearance','theme_id','fish_style'):assert getattr(result,key)==value
+            if key not in ('appearance','theme_id','fish_style'):assert asdict(result)[key]==value
         for key,value in asdict(settings.appearance).items():
             if key not in FIELDS:assert getattr(result.appearance,key)==value
         assert asdict(settings.appearance)['background_style']=='classic'

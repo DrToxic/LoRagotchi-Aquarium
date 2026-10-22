@@ -19,10 +19,14 @@ class AppearanceScene:
         self.weight = None
         self.caustic_phase = 0.
         self.plant_phase = 0.
+        self.water_motion = None
 
     def bind(self):
         """Called only after geometry replacement, not during normal updates."""
         self.applied = self.background = None
+        from .water_motion import WaterMotion
+        if self.water_motion:self.water_motion.root.removeNode()
+        self.water_motion = WaterMotion(self.app.decor)
         self.update(0, force=True)
 
     def update(self, dt, *, now=None, force=False):
@@ -75,6 +79,7 @@ class AppearanceScene:
                 ray.show() if shafts else ray.hide()
                 ray.setColorScale(1,1,1,p.shafts_strength)
             self.applied = state
+        if self.water_motion:self.water_motion.update(dt,p)
         self.caustic_phase += dt*p.caustics_speed
         self.plant_phase += dt*p.plant_speed
         if a.caustic:

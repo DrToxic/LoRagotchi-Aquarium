@@ -548,3 +548,7 @@ RX/DX firmware source and binaries are not included in this aquarium repository.
 ## Tidal Garden graphics
 
 Tidal Garden is now the default scenery, including shaded animated seagrass. Classic remains available as the simpler alternative. Scenery style is separate from colour themes and quality presets. See [Scenery controls](docs/SCENERY.md).
+
+## Living aquarium candidate
+
+0.9.0 adds dynamic/object bubbles, fish activities, animated water, an opt-in local nursery and manual mesh-message games. See [controls and boundaries](docs/LIVING-AQUARIUM.md). DX egg transfer is not connected.
