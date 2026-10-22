@@ -77,7 +77,7 @@ def main():
         adults=[f for f in app.roster if f.stage>=2]
         a,b=adults[:2]
         app.nursery.request_pair(a,b)
-        for _ in range(2800):
+        for _ in range(5500):
             app.nursery.update(1/30);app.update_fish(1/30)
             if app.nursery.pending_request or app.nursery.eggs:break
         deadline=time.monotonic()+5

@@ -91,7 +91,7 @@ class NurseryScene:
         if not settings.enabled:raise ValueError('Enable the nursery first')
         if a.owner==b.owner or min(a.stage,b.stage)<2:raise ValueError('Choose two different adult or elder fish')
         if len(self.eggs)>=settings.capacity:raise ValueError('Nursery is full; existing eggs are retained')
-        self.pending=(a,b);self.elapsed=0.;self.ready_time=0.;self.routes={}
+        self.pending=(a,b);self.elapsed=0.;self.ready_time=0.;self.routes={};self.visit_time={};self.visited=set()
         self.status='Pair visiting the breeding cave'
 
     def roster_mode(self,mode):
@@ -141,13 +141,15 @@ class NurseryScene:
             if not self.app.sim.volume.path_clear((s.x,s.y,s.z),waypoint,s.outline):ready=False;continue
             s.activity='cruise';s.activity_left=0.;s.activity_wait=5.;s.pace_factor=.75
             s.goal=waypoint;s.courtship=waypoint;s.remaining=3.;s.replan_wait=.8
-            if sum((a-b)**2 for a,b in zip((s.x,s.y,s.z),target))>5:ready=False
-        self.ready_time=self.ready_time+dt if ready else 0.
-        if ready and self.ready_time>6:
+            near=stage==2 and sum((a-b)**2 for a,b in zip((s.x,s.y,s.z),target))<=5
+            self.visit_time[fish.owner]=self.visit_time.get(fish.owner,0.)+dt if near else 0.
+            if self.visit_time[fish.owner]>=6:self.visited.add(fish.owner)
+            if fish.owner not in self.visited:ready=False
+        if ready:
             a,b=self.pending
             accepted=self.worker.submit('create',a=asdict(a),b=asdict(b),settings=asdict(settings),id=uuid.uuid4().hex)
             if accepted:self.pending=None;self.pending_request=True;self.status='Storing local egg'
-        elif self.elapsed>90:
+        elif self.elapsed>180:
             self.pending=None;self.status='Pair could not reach cave; no egg created'
 
     def close(self):self.worker.close()

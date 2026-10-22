@@ -131,3 +131,45 @@ def test_nursery_worker_restart_and_demo_live_separation(tmp_path):
         worker.submit('open',mode='demo')
         assert worker.events.get(timeout=3)['eggs']==saved
     finally:worker.close()
+
+
+def nursery_controller():
+    import queue
+    from tank.nursery_scene import NurseryScene
+    a,b,_=adults();parents=[a,b]
+    swimmers={f.owner:SimpleNamespace(x=-5.9+i*2.2,y=-4.4,z=2.65,parked=False,arriving=False,travelling=False,outline=1.75) for i,f in enumerate(parents)}
+    commands=[]
+    worker=SimpleNamespace(events=queue.Queue(),submit=lambda action,**values:commands.append((action,values)) or True)
+    record=SimpleNamespace(enabled=True,visible=True)
+    app=SimpleNamespace(settings=Settings(nursery=NurserySettings(True,False,6,30)),roster=parents,scene=None,
+        sim=SimpleNamespace(swimmers=swimmers,volume=SimpleNamespace(path_clear=lambda *args:True),time=0),
+        placement=SimpleNamespace(records={'nursery:cave':record}))
+    scene=NurseryScene.__new__(NurseryScene)
+    scene.app=app;scene.worker=worker;scene.pending_request=False;scene.eggs=[];scene.next_attempt=20
+    scene.root=SimpleNamespace(getPos=lambda scene:(-4.8,-1.8,.15))
+    scene.request_pair(a,b);scene.routes={f.owner:2 for f in parents}
+    return scene,parents,commands,record
+
+
+def test_each_parent_completes_visit_without_needing_synchronised_arrival():
+    scene,(a,b),commands,_=nursery_controller()
+    sb=scene.app.sim.swimmers[b.owner];sb.y=3.
+    for _ in range(7):scene.update(1.)
+    assert a.owner in scene.visited and not commands
+    scene.app.sim.swimmers[a.owner].y=3.;sb.y=-4.4
+    for _ in range(7):scene.update(1.)
+    assert len(commands)==1 and commands[0][0]=='create'
+    assert scene.pending is None and scene.pending_request
+    for _ in range(10):scene.update(1.)
+    assert len(commands)==1
+
+
+@pytest.mark.parametrize('reason',['hidden','disabled','rename','removed'])
+def test_unavailable_cave_or_changed_parent_cancels_without_egg(reason):
+    scene,(a,b),commands,record=nursery_controller()
+    if reason=='hidden':record.visible=False
+    if reason=='disabled':scene.app.settings.nursery.enabled=False
+    if reason=='rename':scene.app.roster=[replace(a,name='changed'),b]
+    if reason=='removed':scene.app.roster=[b]
+    scene.update(1.)
+    assert scene.pending is None and not commands

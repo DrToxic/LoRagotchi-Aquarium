@@ -1,4 +1,4 @@
-# LoRagotchi-Aquarium · v0.8.0
+# LoRagotchi-Aquarium · v0.9.0
 
 ## Tidal Garden default scenery
 
