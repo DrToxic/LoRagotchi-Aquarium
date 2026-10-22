@@ -23,6 +23,32 @@ no real saved collection or preferences are loaded. The ordinary native controls
 are retained for inspecting appearance/windows. Do not select a live connection
 in this art study. Nothing is installed into HA.
 
+## Vegetation update (study 2)
+
+Classic is retained, including its original scenery and lower measured rendering
+cost. The study now restores the full configured plant count: 8 / 16 / 32 / 48 /
+72 tufts for Compatibility / Low / Balanced / High / Ultra. Interactive launch
+offers the first four; Ultra remains available in the native graphics controls.
+The earlier study capped all presets at eight sparse tufts.
+
+Seagrass now has five curved, folded blades per tuft, shaded roots, brighter
+centre ridges and seeded colour/height variation. Taller eelgrass behind the
+inner reef and shorter foreground patches frame the open central swimming lane.
+Each tuft is a single opaque geometry batch and a single animated transform;
+no textures, shaders, transparency layers or per-frame mesh allocations are added.
+
+- **Aquarium → Appearance & advanced graphics → Quality → Plant count** controls
+  density (0–100; zero removes all grass). Choose **Apply & save**.
+- **Appearance → Light → Plant sway / Sway speed** controls the existing motion.
+  Zero sway leaves the grass still.
+- **Decorations → Reef / Plants** now lists every study placement with readable
+  names and working Auto/Pinned controls. These are placement controls, not new
+  library assets or per-object visibility switches. The **Library** tab is unchanged.
+
+The category bug was a Classic-only prefix filter: study objects retained their
+own stable IDs but were omitted from both lists. Those IDs remain unchanged.
+As before, this demo's settings are temporary and are discarded on exit.
+
 ## Art direction
 
 An asymmetric, calm **Tidal Garden**: a taller weathered limestone outcrop on the
@@ -42,7 +68,7 @@ The earlier reference informs mood only, not asset layout or exact forms.
   grain. Existing sand and caustics are reused; there are no texture downloads.
 - The large composition survives every quality tier. Detail controls subdivision
   and fan branch count, rather than removing focal structures.
-- At most eight small seagrass groups sway. Static pieces are batched through
+- The configured number of seagrass tufts sway. Static pieces are batched through
   the existing placement system; no per-frame mesh rebuild, real-time shadows,
   new engine, postprocessing chain or runtime dependency.
 - Fish retain the existing received colours, stage, meshes, motion and identity.
@@ -69,7 +95,7 @@ normal fish volume and have no rigid proxy.
 
 Every object uses the production full-footprint placement path; masks remove or
 relocate scenery and its proxies together. This study does not modify radio,
-receiver, expiry, themes, settings schemas, desktop-layout or transfer code.
+receiver, expiry, themes, settings schemas, layout solving or transfer code.
 
 ## Reproduce the native probe
 
@@ -100,6 +126,9 @@ byte-unchanged; this repeat check rebuilds and re-batches geometry.
 Separate checks cover night lighting, six seconds of live simulation, 24 solid
 proxy groups, full-footprint masks and restoration, 256 fish, finite poses and
 rebuilds without extra collision bodies. Dense simulation is not an FPS claim.
+Study 2 also checks visible grass motion with frozen fish/caustics, pixel-identical
+sway-off frames, stable geometry/node counts, both native category lists and
+pin/refresh round-trips, plus zero-plant removal and count restoration.
 
 ## Acceptance and next integration
 

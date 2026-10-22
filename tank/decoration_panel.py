@@ -4,6 +4,23 @@ from direct.gui import DirectGuiGlobals as DGG
 from .text import display_text
 
 
+def scenery_category(key):
+    """Classify both Classic and namespaced scene-study placement identities."""
+    if not key.startswith('reef:'):return None
+    kind=key.removeprefix('reef:').removeprefix('study:').split(':')[0]
+    return 'Plants' if kind in ('plant','grass') else 'Reef'
+
+
+def scenery_name(key):
+    if not key.startswith('reef:study:'):
+        return key.removeprefix('reef:').replace(':',' ').title()
+    kind,_,index=key.removeprefix('reef:study:').partition(':')
+    name={'rock':'Limestone','distant':'Distant reef','plate':'Plate coral',
+          'fan':'Sea fan','sponge':'Tube sponge','colony':'Coral colony',
+          'grass':'Seagrass','rubble':'Reef pebble'}.get(kind,kind.title())
+    return f'{name} {int(index)+1}' if index.isdigit() else name
+
+
 class DecorationPanel:
     def __init__(self,controls,parent):
         self.controls,self.app=controls,controls.app
@@ -31,13 +48,12 @@ class DecorationPanel:
         self.rows=[];self.status_labels={}
         library=self.app.decorations;placement=self.app.placement
         if self.category=='Library':keys=['decoration:'+key for key in library.items]
-        elif self.category=='Plants':keys=[k for k in placement.records if k.startswith('reef:plant:')]
-        else:keys=[k for k in placement.records if k.startswith(('reef:rock:','reef:coral:','reef:pebble:'))]
+        else:keys=[k for k in placement.records if scenery_category(k)==self.category]
         self.scroller['canvasSize']=(0,372,-max(334,len(keys)*94+12),0)
         canvas=self.scroller.getCanvas()
         for i,key in enumerate(keys):
             record=placement.records.get(key);item=library.items.get(key.removeprefix('decoration:'))
-            name=item.name if item else key.removeprefix('reef:').replace(':',' ').title()
+            name=item.name if item else scenery_name(key)
             y=25+i*94
             if item:
                 check=DirectCheckButton(parent=canvas,text=display_text(name),text_align=0,
@@ -54,6 +70,10 @@ class DecorationPanel:
             label=self.controls.label(canvas,'',12,y+27,11,344)
             label['frameSize']=(0,344,-31,12)
             self.rows.append(label);self.status_labels[key]=label
+        if not keys:
+            text=('No plants in this scene. Set Plant count in Appearance > Quality.' if self.category=='Plants'
+                  else 'No scenery in this category.')
+            self.rows.append(self.controls.label(canvas,text,12,25,12,344))
         self.refresh_status()
 
     def refresh_status(self):

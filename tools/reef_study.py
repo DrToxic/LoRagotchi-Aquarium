@@ -29,6 +29,58 @@ def rss_mib():
     return None
 
 
+def check_vegetation(app,capture,report,output):
+    """Native pixels, populated controls, pinning and an allocation-free sway loop."""
+    from tank.decoration_panel import scenery_category
+    from panda3d.core import PNMImage
+    appearance=app.settings.appearance
+    saved=(appearance.caustics_speed,appearance.plant_speed,appearance.plant_sway)
+    appearance.caustics_speed=0;appearance.plant_speed=1;appearance.plant_sway=1
+    plants=list(app.plants)
+    assert len(plants)==app.settings.plants
+    original_nodes=[n.node() for n,_ in plants]
+    stats=graph_stats(app.decor)
+    app.appearance.update(0)
+    before=capture('reef-grass-still')
+    before_roll=[n.getR() for n,_ in plants]
+    for _ in range(120):app.appearance.update(1/30)
+    after=capture('reef-grass-sway')
+    assert any(abs(n.getR()-roll)>.1 for (n,_),roll in zip(plants,before_roll))
+    changed=sum(before.getXel(x,y)!=after.getXel(x,y)
+                for y in range(before.getYSize()) for x in range(before.getXSize()))
+    assert changed>100,('No visible vegetation motion',changed)
+    assert original_nodes==[n.node() for n,_ in app.plants]
+    assert graph_stats(app.decor)==stats
+    appearance.plant_sway=0;app.appearance.update(0)
+    stopped=capture('reef-grass-sway-off')
+    app.appearance.update(3)
+    repeat=PNMImage();app.graphicsEngine.renderFrame()
+    app.graphicsEngine.syncFrame();assert app.aquarium_window.getScreenshot(repeat)
+    assert all(stopped.getXel(x,y)==repeat.getXel(x,y)
+               for y in range(stopped.getYSize()) for x in range(stopped.getXSize()))
+    assert all(n.getR()==0 for n,_ in plants)
+    panel=app.controls.decorations
+    app.controls.page('Decorations')
+    counts={}
+    for category in ('Reef','Plants'):
+        panel.choose(category)
+        expected={k for k in app.placement.records if scenery_category(k)==category}
+        assert set(panel.status_labels)==expected and expected
+        counts[category]=len(expected)
+        key=next(iter(panel.status_labels))
+        pinned=app.placement.pinned(key)
+        panel.pin(key);assert app.placement.pinned(key)!=pinned
+        panel.refresh();assert app.placement.pinned(key)!=pinned
+        panel.pin(key);assert app.placement.pinned(key)==pinned
+        for _ in range(3):app.graphicsEngine.renderFrame()
+        assert app.win.saveScreenshot(str(output/f'controls-{category.lower()}.png'))
+    appearance.caustics_speed,appearance.plant_speed,appearance.plant_sway=saved
+    app.appearance.update(0)
+    report['vegetation']={'animated_tufts':len(plants),'sway_changed_pixels':changed,
+                          'sway_off_pixel_identical':True,'stable_nodes_and_geometry':True,
+                          'category_rows':counts,'pin_refresh_roundtrip':True}
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--interactive',action='store_true')
@@ -125,6 +177,7 @@ def main():
         report['day_mean_luminance']=images['reef'].getAverageGray()
         app.appearance.preview=1
         app.appearance.update(0,force=True)
+        check_vegetation(app,capture,report,args.output)
         # Runtime motion uses real simulation; matched solid proxies remain attached.
         app.sim.step=step
         for _ in range(180):app.update_fish(1/30)
@@ -149,6 +202,16 @@ def main():
         assert model_nodes=={k:v[0].node() for k,v in app.models.items()}
         assert len([v for k,v in app.sim.physics.groups.items() if k.startswith('reef:study:') and v])==24
         report['mask_and_restore_checks']=2
+        # Graphics count zero really removes plants and leaves a useful empty state.
+        count=app.settings.plants;app.settings.plants=0;app.rebuild_scene()
+        assert not app.plants
+        app.controls.decorations.choose('Plants')
+        assert not app.controls.decorations.status_labels
+        assert app.controls.decorations.rows
+        app.settings.plants=count;app.rebuild_scene()
+        app.controls.decorations.choose('Plants')
+        assert len(app.controls.decorations.status_labels)==count
+        report['vegetation']['zero_and_restore']=True
         # Dense roster is simulation/collision proof, not an FPS benchmark.
         from tank.demo import visitors
         app.roster=list(visitors(256));app.sync_models()

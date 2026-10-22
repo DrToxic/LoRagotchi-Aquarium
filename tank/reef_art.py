@@ -9,7 +9,8 @@ import math
 import random
 
 from panda3d.core import NodePath, PNMImage, Texture, TransparencyAttrib, Vec3
-from .art import mesh, floor_mesh, sand_texture, plant_leaf
+from .art import mesh, floor_mesh, sand_texture
+from .bubble_columns import floor_height
 
 # Deliberately asymmetric: a weathered left outcrop and a lower right garden.
 # Centre +/-5 units stays open. Coarse silhouettes do not change with quality.
@@ -188,8 +189,57 @@ def sponge_model(height,radius,colour,detail,seed):
     node=mesh('open-tube-sponge',vertices,triangles);node.setTexture(reef_texture());return node
 
 
+def seagrass_model(height, width, detail, seed):
+    """Five folded, tapered blades: opaque vertex-shaded geometry, one sway node.
+
+    The centre ridge catches light and the shaded roots sit naturally in sand.
+    Curvature/twist and colour vary per blade; nothing is rebuilt during motion.
+    """
+    root=NodePath('reef-seagrass');rng=random.Random(seed)
+    segments=max(5,min(10,detail//2))
+    base=(rng.uniform(.18,.25),rng.uniform(.39,.49),rng.uniform(.25,.32))
+    for blade in range(5):
+        h=height*rng.uniform(.65,1.12);w=width*rng.uniform(.75,1.2)
+        bend=rng.uniform(-.7,.7)*h*.3;curl=rng.uniform(-.5,.5)
+        vertices=[];triangles=[]
+        for i in range(segments+1):
+            t=i/segments
+            half=w*(.2+.8*math.sin(math.pi*t**.82))*(1-t**8)*.5+.002
+            centre=bend*t*t
+            shade=.46+.54*math.sin(t*math.pi*.65)
+            for side in (-1,0,1):
+                # A shallow V fold, with an asymmetric curl towards the tip.
+                y=curl*t*t+abs(side)*half*.30
+                normal=Vec3(side*.30,-1,2*curl*t/h);normal.normalize()
+                rim=.80 if side else 1.12
+                colour=tuple(min(1,c*shade*rim) for c in base)+(1,)
+                vertices.append(((centre+side*half,y,h*t),normal,colour,((side+1)/2,t)))
+        for i in range(segments):
+            for side in range(2):
+                a=i*3+side;b=a+3
+                triangles.extend(((a,a+1,b),(a+1,b+1,b)))
+        leaf=mesh('folded-seagrass-blade',vertices,triangles)
+        leaf.setTwoSided(True);leaf.reparentTo(root)
+        leaf.setH(blade*137.5+rng.uniform(-18,18))
+        leaf.setPos(rng.uniform(-.15,.15),rng.uniform(-.15,.15),0)
+    root.flattenStrong()
+    return root
+
+
+def seagrass_site(index):
+    """Stable patches, ordered across both sides so low tiers keep the balance."""
+    patches=(( -7.2,4.3,3.7), (7.4,5.0,3.9),
+             (-19.5,1.0,4.5),(20.0,2.0,4.0),
+             (-12.4,-3.6,2.0),(12.8,-3.6,2.2),
+             (-6.8,-.9,2.5),(7.2,-1.1,2.5))
+    x,y,height=patches[index%len(patches)]
+    rng=random.Random(3800+index)
+    x+=rng.uniform(-1.15,1.15);y+=rng.uniform(-.85,.85)
+    return (x,y,floor_height(x,y)-.035),height*rng.uniform(.8,1.2)
+
+
 def scenery(parent,settings,placement=None):
-    """Build once; only a small bounded set of soft fronds animates per frame."""
+    """Build once; one soft tuft per configured plant animates per frame."""
     static=parent.attachNewNode('tidal-garden-static');plants=[]
     detail=min(28,settings.detail)
     floor=floor_mesh();floor.reparentTo(parent);floor.setTexture(sand_texture());floor.setTwoSided(True)
@@ -240,16 +290,13 @@ def scenery(parent,settings,placement=None):
             end=(p[0]*1.2,p[1]*1.2,h)
             tube_mesh((p,end),( .085,.04),(.62,.53,.35) if i%2 else (.42,.62,.53),6).reparentTo(colony)
         colony.flattenStrong();place('colony:'+str(i),colony,(x,y,.1))
-    # Sparse seagrass: retain the existing appearance sway control, cap work at 8.
-    count=min(8,settings.plants)
-    for i in range(count):
-        rng=random.Random(800+i);x=(-1 if i%2 else 1)*(17+(i//2)*1.2)
-        n=NodePath('reef-seagrass')
-        for j in range(4):
-            leaf=plant_leaf(rng.uniform(1.2,2.8),rng.uniform(.11,.24),rng.uniform(-.6,.6),(.21,.36,.28),6)
-            leaf.reparentTo(n);leaf.setH(j*91)
-        n.flattenStrong();place('grass:'+str(i),n,(x,-.2+(i//2)*.4,.1),sway=True)
-        plants.append((n,rng.random()*math.tau))
+    # Honour the normal plant budget (including zero) and existing sway controls.
+    # One batched tuft/transform per plant; centre channel and focal rocks stay open.
+    for i in range(settings.plants):
+        pos,height=seagrass_site(i)
+        n=seagrass_model(height,.30 if i%8<4 else .42,detail,800+i)
+        place('grass:'+str(i),n,pos,sway=True)
+        plants.append((n,random.Random(1800+i).random()*math.tau))
     rng=random.Random(912)
     for i in range(20 if detail<16 else 34):
         x=rng.uniform(-22,22);y=rng.uniform(-4,6)
