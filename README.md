@@ -1,11 +1,14 @@
-# LoRagotchi-Aquarium · v0.7.0
+# LoRagotchi-Aquarium · v0.8.0
 
-## Local original reef study
+## Tidal Garden default scenery
 
-This branch includes an opt-in native **Tidal Garden** study, not a release or
-HA setting. Run `uv run python -m tools.reef_study --interactive`.
-[Art direction, commands and measurement limits](docs/REEF-STUDY.md).
-Classic remains the ordinary application default.
+Tidal Garden is now the default native reef, with upgraded animated seagrass.
+Reef and Plants have persistent per-object checkboxes in Decorations.
+Classic remains selectable under Appearance → Quality → Scenery style.
+[Scenery controls and HA configuration](docs/SCENERY.md).
+
+The separate `tools.reef_study` launcher remains available for historical
+comparison probes; it is no longer needed to run the new graphics.
 
 ## Themes and fish styles
 
