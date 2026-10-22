@@ -46,8 +46,9 @@ def main():
         owner.set_enabled(key,True);app.columns.configure()
         assert len(app.columns.items)==300
         report['hidden_object_emitter_removed']=True
-        # Frozen fish: alternate collisions on/off with identical particle start
-        # states and settings. Report CPU update separately from full frame.
+        # Frozen fish, same particle budget: alternate collisions on/off.
+        # Particle trajectories vary; these are dynamic whole-option timings,
+        # not an isolated collision-kernel cost. Report update and full frame.
         measurements=[]
         for enabled in (False,True,False,True):
             p=app.settings.appearance;p.bubble_collisions=enabled
