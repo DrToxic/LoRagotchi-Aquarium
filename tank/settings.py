@@ -26,6 +26,8 @@ class Settings:
     chat_bubbles:bool=True
     show_names:bool=False
     decorations:dict=field(default_factory=dict)
+    scene:str="tidal-garden"
+    scenery:dict=field(default_factory=dict)
     fish_animations:bool=True
     fish_lifespan_hours:float=0.0
     exit_styles:dict=field(default_factory=dict)
@@ -82,6 +84,9 @@ LIMITS={'scale':(.25,2,False),'detail':(8,48,True),'plants':(0,100,True),
 
 
 def validate_setting(key,value):
+    if key=='scene':
+        if value not in ('tidal-garden','classic'):raise ValueError('Unknown scenery style')
+        return value
     if key=='theme_id':
         from .themes import identifier
         return identifier(value)
@@ -98,7 +103,7 @@ def validate_setting(key,value):
         if not isinstance(value,str) or value not in (*PRESETS,'custom'):raise ValueError('Unknown preset')
     elif key=='schema_version':
         if type(value) is not int or value<1:raise ValueError('Invalid schema version')
-    elif key in ('decorations','exit_styles'):
+    elif key in ('decorations','exit_styles','scenery'):
         if not isinstance(value,dict) or not all(isinstance(k,str) and isinstance(v,bool) for k,v in value.items()):
             raise ValueError('Expected named on/off selections')
     elif not isinstance(value,bool):raise ValueError('Expected true or false')

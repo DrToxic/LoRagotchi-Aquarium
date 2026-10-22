@@ -1,3 +1,7 @@
+# Promoted to the default scene
+
+Tidal Garden is now the default (standalone 0.8.0 / HA preview 9). Classic remains selectable. The study notes below are historical measurements, not current opt-in requirements.
+
 # Tidal Garden — original reef scene study
 
 **Local prototype on top of v0.7.0, not a new release or HA option.**

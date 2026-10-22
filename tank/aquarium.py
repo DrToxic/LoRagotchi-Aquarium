@@ -6,7 +6,8 @@ from panda3d.core import (AmbientLight,DirectionalLight,Fog,WindowProperties,
                          TransparencyAttrib,ClockObject,TextureStage,loadPrcFileData)
 from direct.showbase.ShowBase import ShowBase
 from direct.gui.OnscreenText import OnscreenText
-from .art import fish_model,scenery,mesh
+from .art import fish_model,mesh
+from .scenery import scenery
 from .settings import Settings,PRESETS
 from .simulation import Simulation
 from .views import AquariumView, desktop_lenses
@@ -126,6 +127,7 @@ class Aquarium(ShowBase):
         self.setup_output()
         self.placement.apply()
         self.appearance.bind()
+        if hasattr(self,"controls"):self.controls.decorations.rebuild()
 
     def setup_output(self):
         if self._configuring_output or self.win is None or not self.win.getProperties().getOpen():return

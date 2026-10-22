@@ -167,3 +167,19 @@ def test_drag_withdraws_invalid_objects_then_reflows_after_release(tmp_path):
     app.window_drag.active=None;app.placement.apply()
     assert not app.placement.pending
     assert record.visible and record.position!=original
+
+
+def test_disabled_reef_solid_survives_saved_reload_and_geometry_rebuild(tmp_path):
+    from tank.scenery import scenery
+    app=app_at(tmp_path);key='reef:study:rock:0'
+    app.settings.scenery[key]=False;app.settings.save(app.args.settings)
+    app.settings=Settings.load(app.args.settings)
+    for scene in ('tidal-garden','classic','tidal-garden'):
+        app.placement.discard('reef:');app.settings.scene=scene
+        root=app.scene.attachNewNode('test-reef')
+        scenery(root,app.settings,app.placement);app.placement.apply()
+        if scene=='tidal-garden':
+            assert not app.placement.records[key].enabled
+            assert not app.placement.records[key].visible
+            assert not app.sim.physics.groups[key]
+        app.placement.discard('reef:');root.removeNode()

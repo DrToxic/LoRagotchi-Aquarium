@@ -56,6 +56,8 @@ class ScenePlacement:
             pad=radius*math.sin(math.radians(9))
             low=(low[0]-pad,low[1],low[2]-pad)
             high=(high[0]+pad,high[1],high[2]+pad)
+        if key.startswith('reef:'):
+            enabled=self.app.settings.scenery.get(key,enabled)
         record=PlacedObject(key,node,pos,low,high,tuple(shapes),batched,enabled)
         record.support_bottom=bottom
         hint=self.app.display.placements.get(key,{})

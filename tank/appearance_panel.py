@@ -28,7 +28,7 @@ GROUPS = {
         ('column_seed','Position seed'),('column_particles','Total column bubbles'),
         ('column_width','Column spread'),('column_size','Bubble size'),('column_speed','Rise speed')),
     'Quality': (
-        ('scale','Render scale'),('detail','Mesh detail'),('plants','Plant count'),
+        ('scene','Scenery style'),('scale','Render scale'),('detail','Mesh detail'),('plants','Plant count'),
         ('bubbles','Ambient bubbles'),('lighting','Scene lighting'),('caustics','Caustics'),
         ('fps','FPS limit'),('vsync','VSync (restart)')),
 }
@@ -53,7 +53,7 @@ class AppearancePanel:
                 y=30+row*43;canvas=frame.getCanvas()
                 controls.label(canvas,label,10,y,13)
                 value=self.value(key)
-                choices=('off','on') if key in BOOLS else CHOICES.get(key)
+                choices=('Tidal Garden','Classic') if key=='scene' else ('off','on') if key in BOOLS else CHOICES.get(key)
                 if choices:
                     # Desktop has no HA credential/API connection. HA sun is offered
                     # only in HA Configuration, with a real observer behind it.
@@ -78,6 +78,7 @@ class AppearancePanel:
         self.page('Light')
 
     def value(self,key):
+        if key=='scene':return {'tidal-garden':'Tidal Garden','classic':'Classic'}[self.app.settings.scene]
         return getattr(self.app.settings,key) if key in dict(GROUPS['Quality']) else getattr(self.app.settings.appearance,key)
 
     def page(self,name):
@@ -101,7 +102,8 @@ class AppearancePanel:
         for key,(widget,_) in self.fields.items():
             raw=widget.get().strip()
             try:
-                if key in BOOLS:value=raw=='on'
+                if key=='scene':value={'Tidal Garden':'tidal-garden','Classic':'classic'}[raw]
+                elif key in BOOLS:value=raw=='on'
                 elif key in INTEGERS or key in ('detail','plants','bubbles','fps'):value=int(raw)
                 elif key in RANGES or key=='scale':value=float(raw)
                 else:value=raw
@@ -111,7 +113,7 @@ class AppearancePanel:
         extra=getattr(settings.appearance,'_extra',{})
         settings.appearance=Appearance.from_dict(appearance)
         settings.appearance._extra=extra
-        if any(getattr(settings,k)!=getattr(self.app.settings,k) for k in quality):settings.preset='custom'
+        if any(getattr(settings,k)!=getattr(self.app.settings,k) for k in quality if k!='scene'):settings.preset='custom'
         if appearance!=asdict(self.app.settings.appearance):settings.theme_id="current"
         return settings
 

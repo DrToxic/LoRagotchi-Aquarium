@@ -63,11 +63,16 @@ def test_texture_is_shared_and_bounded():
     assert a.getNumComponents()==3
 
 
-def test_default_app_does_not_import_study():
-    # The shipped selector/config remains untouched; experiment is opt-in only.
-    import tank.aquarium
-    from tank.art import scenery as classic
-    assert tank.aquarium.scenery is classic
+def test_default_scene_and_explicit_classic_use_real_providers():
+    from tank.scenery import scenery as selected
+    for scene,expected in (('tidal-garden','reef:study:'),('classic','reef:rock:')):
+        class Placement:
+            def __init__(self):self.keys=[]
+            def register(self,key,*args,**kwargs):self.keys.append(key)
+        placement=Placement();root=NodePath('test')
+        selected(root,Settings(scene=scene),placement)
+        assert any(k.startswith(expected) for k in placement.keys)
+        root.removeNode()
 
 
 def test_grass_is_seeded_single_batch_and_leaves_the_centre_open():

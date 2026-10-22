@@ -1,4 +1,4 @@
-"""Tidal Garden: original, opt-in reef study; not a production scene selector.
+"""Tidal Garden: original default reef scenery.
 
 All shapes and surface detail are authored here (MIT); no external artwork.
 The public scenery interface matches art.scenery so the study can reuse the

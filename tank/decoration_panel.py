@@ -24,7 +24,7 @@ def scenery_name(key):
 class DecorationPanel:
     def __init__(self,controls,parent):
         self.controls,self.app=controls,controls.app
-        self.category='Library';self.rows=[];self.status_labels={}
+        self.category='Library';self.rows=[];self.status_labels={};self.checks={}
         controls.label(parent,'SCENERY PLACEMENT',18,105,12)
         self.protect=controls.button(parent,'',18,140,396,self.toggle_protection)
         for name,x in (('Library',18),('Reef',150),('Plants',288)):
@@ -45,7 +45,7 @@ class DecorationPanel:
         for row in self.rows:
             self.app._ui_text.pop(id(row),None)
             row.destroy()
-        self.rows=[];self.status_labels={}
+        self.rows=[];self.status_labels={};self.checks={}
         library=self.app.decorations;placement=self.app.placement
         if self.category=='Library':keys=['decoration:'+key for key in library.items]
         else:keys=[k for k in placement.records if scenery_category(k)==self.category]
@@ -55,14 +55,14 @@ class DecorationPanel:
             record=placement.records.get(key);item=library.items.get(key.removeprefix('decoration:'))
             name=item.name if item else scenery_name(key)
             y=25+i*94
-            if item:
+            if record or item:
                 check=DirectCheckButton(parent=canvas,text=display_text(name),text_align=0,
                     text_scale=14,text_pos=(24,0),text_fg=(.86,.94,.89,1),
-                    indicatorValue=library.enabled(item) if record else False,
+                    indicatorValue=(library.enabled(item) if item else record.enabled) if record else False,
                     indicator_scale=12,indicator_pos=(6,0,4),frameColor=(0,0,0,0),relief=None,
-                    pos=(8,0,-y),command=self.toggle,extraArgs=[item.key],
+                    pos=(8,0,-y),command=self.toggle,extraArgs=[key],
                     state=DGG.NORMAL if record else DGG.DISABLED)
-                self.rows.append(check)
+                self.rows.append(check);self.checks[key]=check
             else:self.rows.append(self.controls.label(canvas,name,12,y,14))
             pin=self.controls.button(canvas,'Pinned' if placement.pinned(key) else 'Auto',266,y,90,
                                      lambda k=key:self.pin(k))
@@ -92,7 +92,15 @@ class DecorationPanel:
             p.status+'\nAuto moves only when needed; pinned conflicts wait for space.'))
 
     def toggle(self,value,key):
-        self.app.decorations.set_enabled(key,value);self.app.save_display();self.refresh_status()
+        if key.startswith('decoration:'):
+            self.app.decorations.set_enabled(key.removeprefix('decoration:'),value)
+        elif key in self.app.placement.records:
+            from copy import deepcopy
+            settings=deepcopy(self.app.settings);settings.scenery[key]=bool(value)
+            settings.save(self.app.args.settings)
+            self.app.settings=settings
+            self.app.placement.set_enabled(key,value)
+        self.app.save_display();self.refresh_status()
 
     def pin(self,key):
         self.app.placement.pin(key,not self.app.placement.pinned(key));self.rebuild()

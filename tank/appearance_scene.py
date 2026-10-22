@@ -101,7 +101,7 @@ class AppearanceScene:
         # Persist the validated snapshot first; a failed save leaves the display intact.
         settings.save(a.args.settings)
         a.settings = settings
-        geometry = any(getattr(previous,k) != getattr(settings,k) for k in ('detail','plants','bubbles','caustics'))
+        geometry = any(getattr(previous,k) != getattr(settings,k) for k in ('detail','plants','bubbles','caustics','scene'))
         if geometry:a.rebuild_scene()
         else:
             if previous.fish_style != settings.fish_style:a.restyle_fish()

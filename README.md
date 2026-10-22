@@ -541,3 +541,7 @@ Original Author: https://github.com/DarkButterfly85/LoRagotchi-DX
 Fork: https://github.com/DrToxic/LoRagotchi-DX
 
 RX/DX firmware source and binaries are not included in this aquarium repository.
+
+## Tidal Garden graphics
+
+Tidal Garden is now the default scenery, including shaded animated seagrass. Classic remains available as the simpler alternative. Scenery style is separate from colour themes and quality presets. See [Scenery controls](docs/SCENERY.md).
