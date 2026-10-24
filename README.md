@@ -1,5 +1,7 @@
 # LoRagotchi-Aquarium · v0.9.0
 
+**Playing the mesh games?** [Two-player setup, rules and troubleshooting](docs/LIVING-AQUARIUM.md#games-using-mesh-messages).
+
 ## Tidal Garden default scenery
 
 Tidal Garden is now the default native reef, with upgraded animated seagrass.
