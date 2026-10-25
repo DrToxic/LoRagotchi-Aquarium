@@ -86,7 +86,8 @@ reserved. Maximum128 custom themes,16KiB each. Types, finite ranges, colours and
 field names are validated; symlinks are not loaded. Files contain only these
 manifest fields—never collection/history, credentials or connection settings.
 Images, scripts, custom model packs, per-fish styles and outlined shaders are
-outside this pass. Richer original reef artwork remains the next work item.
+not supported. Original Tidal Garden reef artwork has shipped; see
+[Scenery](https://github.com/DrToxic/LoRagotchi-Aquarium/blob/main/docs/SCENERY.md). These exclusions are not outstanding owner decisions.
 
 ## Verification
 

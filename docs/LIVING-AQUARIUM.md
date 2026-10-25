@@ -56,11 +56,50 @@ egg. Portraits are generated from the stored breeding-time appearance, not the
 parent's later live state. Colour previews use one stored random interpolation
 fraction between the parents' body colours in linear-light sRGB.
 
-**These are local eggs, not transferable DX genomes.** The rule is explicitly
-versioned `local-linear-srgb-v1`; `firmware_genome` remains null. No egg is removed,
-claimed, ACKed or transmitted. DX discovery, genome/palette mapping and a durable
-reservation/commit/recovery handshake must be agreed with the firmware session
-before enabling transfer. See [DX egg contract](DX-EGG-CONTRACT.md).
+**Current release:** these are local eggs, not transferable DX genomes. The rule
+is versioned `local-linear-srgb-v1`; `firmware_genome` remains null. No egg is
+removed, claimed, acknowledged or transmitted by the aquarium.
+
+### Egg adoption integration status
+
+The DX-side [EGG-ADOPTION.md specification](https://github.com/DrToxic/LoRagotchi-DX/blob/feature/egg-adoption-colours/EGG-ADOPTION.md)
+defines LEG1 capability negotiation and delivery, H1 hue genes, identity binding
+and durable DX receipts. It supersedes the former aquarium boundary checklist.
+RX forwarding and aquarium integration are still required; this is not a working
+end-to-end adoption feature yet.
+
+**Agreed gameplay (2026-10-24; not implemented by this documentation change):**
+
+- Keep new-pet/reset adoption and select the egg in the aquarium app.
+- Add **Options → Adopt an egg** when a saved designated 🥚 aquarium companion
+  exists and the pet has no pending successor egg. The emoji is a discovery hint;
+  a successful capability handshake must precede transfer.
+- With a living pet, adoption fills the empty successor slot instead of breeding.
+  It does not replace or reset the living pet or overwrite an existing egg.
+- Generation follows the player's lineage: succession advances the local counter
+  normally, not to the donor's generation. Donor parents remain provenance.
+
+**Agreed existing-egg migration and preview policy (implementation pending):**
+preserve egg IDs, parents, stored preview data and random choices; derive
+DX-compatible H1 genes once, without rerolling the egg. Before adoption, offer
+an optional reveal of the actual adoption colours, or let the player keep them
+a surprise. Revealing or hiding the preview must not change genes or eligibility.
+Do not force a colour reveal as part of confirmation or pass off the historical
+RGB preview as an exact DX colour match. Both choices use the same durable
+reservation and confirmation flow.
+
+**Implementation requirements, not additional owner decisions:** persist an
+exclusive reservation before delivery; bind it to full device identity and the
+transaction; retry identical payloads; consume only after a durable DX receipt.
+A link ACK or timeout is not proof of adoption. Ambiguous deliveries stay reserved
+until reconciled, including after restart. Preserve transaction history and
+existing egg identity/provenance. Capability absence, offline service and storage
+failure must not silently consume eggs. No credentials belong in protocol logs.
+
+The current DX specification describes fresh/reset adoption and has a finite
+receipt-replay window. Successor adoption, player-generation handling and robust
+reconciliation must be implemented and verified across DX/RX/app before enabling
+this flow. These engineering gaps are not resolved merely by deleting a checklist.
 
 ## Games using mesh messages
 

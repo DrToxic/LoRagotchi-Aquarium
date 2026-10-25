@@ -16,6 +16,24 @@ def tint565(value):
 
 def colour(index,tint=65535):return PALETTE[index] if index<6 else tint565(tint)
 
+
+def juvenile_colours(snapshot):
+    """Express existing genes, never mutate them; DX weights, Aquarium palette.
+
+    DX blends RGB565 against 0xFFBC ivory in eighths. Keep float precision here
+    for native lighting. Allele 6 retains the supplied monochrome/guest tint;
+    it is not a hue and must not acquire an ivory cast. Both current Aquarium
+    transports use the legacy palette, not H1: conversion stays in colour().
+    """
+    ivory=tint565(0xFFBC)
+    def express(allele,weight):
+        genetic=colour(allele,snapshot.tint)
+        if allele==6:return genetic
+        return tuple((genetic[k]*weight+ivory[k]*(8-weight))/8 for k in range(3))
+    young=snapshot.stage==1
+    return (express(snapshot.body,5 if young else 2),
+            express(snapshot.scales if young else snapshot.body,6 if young else 5))
+
 def mesh(name,vertices,triangles):
     data=GeomVertexData(name,GeomVertexFormat.getV3n3c4t2(),Geom.UHStatic)
     data.setNumRows(len(vertices))
@@ -63,6 +81,11 @@ def fish_model(snapshot,detail,style='classic'):
     rounded=style=='rounded';faceted=style=='faceted'
     if faceted:detail=min(detail,10)
     root=NodePath("fish-"+snapshot.owner[:8]);body=colour(snapshot.body,snapshot.tint);scales=colour(snapshot.scales,snapshot.tint);eye=colour(snapshot.eyes,snapshot.tint)
+    juvenile=snapshot.stage in (0,1)
+    if juvenile:
+        body,scales=juvenile_colours(snapshot)
+        # Eye genetics express in adults; neutral rims/pupils/glints stay legible.
+        eye=(.90,.90,.90)
     root.setTag("fish-style",style)
     static=root.attachNewNode("static-fish-geometry")
     # Fusiform body, elliptical in section; bands are vertex-coloured masks.
@@ -78,6 +101,7 @@ def fish_model(snapshot,detail,style='classic'):
             # Fine dorsal stripe and alternating glimmering scale rows.
             blend=.55 if (int(u*12)+int(j/2))%3==0 else .13
             if z>.28:blend=.65
+            if juvenile:blend=0.  # No secondary markings until adulthood.
             brightness=.75+.25*(math.sin(angle)+1)/2
             col=tuple((body[k]*(1-blend)+scales[k]*blend)*brightness for k in range(3))+(1,)
             verts.append(((x,y,z),normal,col,(u,j/radial)))
@@ -104,7 +128,7 @@ def fish_model(snapshot,detail,style='classic'):
     fins=[]
     for side in (-1,1):
         finnode=root.attachNewNode("pectoral");finnode.setPos(.15,side*.31,-.03)
-        fin("pectoral",[(0,0,0),(-.35,side*.4,-.27),(-.48,side*.12,.05)],body).reparentTo(finnode);fins.append(finnode)
+        fin("pectoral",[(0,0,0),(-.35,side*.4,-.27),(-.48,side*.12,.05)],scales if juvenile else body).reparentTo(finnode);fins.append(finnode)
         eyeNode=ellipsoid("eye-rim",(.14,.055,.14),eye,max(8,detail//2));eyeNode.reparentTo(static);eyeNode.setPos(.53 if rounded else .65,side*(.31 if rounded else .27),.18)
         pupil=ellipsoid("eye",(.07,.035,.085),(.018,.03,.05),max(8,detail//2));pupil.reparentTo(static);pupil.setPos(.55 if rounded else .67,side*(.356 if rounded else .316),.18)
         glint=ellipsoid("eye-glint",(.023,.013,.025),(1.,1.,.94),8);glint.reparentTo(static);glint.setPos(.57 if rounded else .69,side*(.384 if rounded else .344),.21);glint.setLightOff()

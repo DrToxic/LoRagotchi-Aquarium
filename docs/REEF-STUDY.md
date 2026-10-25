@@ -134,14 +134,9 @@ Study 2 also checks visible grass motion with frozen fish/caustics, pixel-identi
 sway-off frames, stable geometry/node counts, both native category lists and
 pin/refresh round-trips, plus zero-plant removal and count restoration.
 
-## Acceptance and next integration
+## Historical acceptance and integration
 
-This is a reviewable visual/technical study, **not** a claim that software-GL
-results predict Windows/GPU or the owner's HAOS host. See the accompanying
-report for measured values, exact source commit and final-package test evidence.
-
-Before making this a normal setting: review the composition in motion on target
-hardware, choose the scene selector/default policy, wire it into both products,
-retain Classic, regenerate the HA context, and run the HA container/browser and
-actual upgrade checks. Keep appearance and performance independent. Nothing in
-this study proves that an engine migration is necessary.
+The scene/default decision was completed: Tidal Garden shipped as the default in
+standalone 0.8.0 / HA preview 9, with Classic retained. Use [Scenery](SCENERY.md)
+for current controls. The study measurements above remain historical evidence,
+not outstanding approval requests or predictions of target-hardware performance.

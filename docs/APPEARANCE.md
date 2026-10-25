@@ -89,15 +89,39 @@ service calls. The renderer receives only a small local sun/timezone snapshot,
 never the HA token. Observer failure cannot stop fish intake. HA currently has
 one window and no generated shelves: choose floor or mixed for visible columns.
 
-## Compatibility and next steps
+## Compatibility
 
 Settings schema 2 accepts older files, preserves unknown fields and validates
 known fields individually. Loading a malformed file does not modify it. Before
 an explicit save replaces a file with validation warnings, its original bytes
 are retained beside it as `settings.json.pre-migration[.N].bak`.
 
-This release does not add theme packs/import/export, image backgrounds, new fish
-models or new reef assets. Those need a separate original art/layout pass. Fish
-identity, received colours/stages, databases, radio protocol and firmware are
-unchanged. Appearance changes do not rebuild fish; geometry/detail changes still
+Theme import/export and global fish styles are documented in [Themes](THEMES.md);
+the shipped Tidal Garden reef is documented in [Scenery](SCENERY.md). Image
+backgrounds are not supported. Fish identity, received colours/stages, databases,
+radio protocol and firmware are unchanged. Appearance changes do not rebuild fish; geometry/detail changes still
 use the existing state-preserving rebuild path.
+
+## Age-based genetic colour expression
+
+Fry and young express the genes already received; there is no new random choice,
+setting, save migration or radio message. Classic, Rounded and Faceted use the
+same rules. Adult and elder appearances are unchanged.
+
+| Stage | Body | Tail and fins | Body markings |
+| --- | --- | --- | --- |
+| Fry | Ivory with 25% primary colour | Ivory with 62.5% primary colour | None |
+| Young | Ivory with 62.5% primary colour | Ivory with 75% secondary colour | None |
+| Adult/elder | Existing full genetic palette | Existing appearance | Existing detailed markings |
+
+The percentages match DX's juvenile-colour implementation: primary is `body`,
+secondary is `scales`, and ivory is RGB565 `0xFFBC`. Aquarium uses its existing
+softer palette and float-precision 3D shading rather than firmware sprite pixels
+or RGB565 channel rounding. Neutral eye rims, dark pupils and bright glints stay
+readable; eye genes first express at adulthood. Colour belongs to each mesh, so
+it follows the body, tail and pectoral joints through turns and animations.
+
+Intentional monochrome alleles retain their received tint without an ivory cast.
+The current Aquarium snapshot/receiver paths support the legacy palette, not H1;
+this rendering change does not add or alter H1 decoding, persistence or adoption.
+DX's H1 conversion remains on the firmware side where already supported.
