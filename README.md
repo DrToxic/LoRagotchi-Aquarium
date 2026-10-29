@@ -1,31 +1,6 @@
-# LoRagotchi-Aquarium · v0.9.0
+# LoRagotchi-Aquarium · v0.10.0
 
-**Playing the mesh games?** [Two-player setup, rules and troubleshooting](docs/LIVING-AQUARIUM.md#games-using-mesh-messages).
-
-## Native controls
-
-The optional desktop operator now opens at 1100×800 with a persistent sidebar,
-readable pixel-sized controls and scrollable smaller-window layouts. See
-[Controls and save scopes](docs/CONTROLS.md) for appearance drafts, previews,
-separate save actions and the feature map. Home Assistant managed mode remains
-display-only and continues to use HA Configuration, not this operator.
-
-## Tidal Garden default scenery
-
-Tidal Garden is now the default native reef, with upgraded animated seagrass.
-Reef and Plants have persistent per-object checkboxes in Decorations.
-Classic remains selectable under Appearance → Quality → Scenery style.
-[Scenery controls and HA configuration](docs/SCENERY.md).
-
-The separate `tools.reef_study` launcher remains available for historical
-comparison probes; it is no longer needed to run the new graphics.
-
-## Themes and fish styles
-
-Six built-in themes, persistent editable custom themes, JSON import/export, and
-Classic/Rounded/Faceted fish styles. See [Themes](docs/THEMES.md) for controls,
-HA configuration authority and the portable data-only format.
-
+[Changes and version history](CHANGES.MD) · **Playing the mesh games?** [Two-player setup, rules and troubleshooting](docs/LIVING-AQUARIUM.md#games-using-mesh-messages).
 
 A native **Python + Panda3D** aquarium for shared LoRagotchi fish. Real 3D fish,
 independent cruise/glide swimming, animated tails/turns, original procedural scenery, adjustable graphics, durable
@@ -36,91 +11,6 @@ RX receives a normal DX visit, captures a snapshot, then proactively returns the
 original after about four seconds. Returning the original **does not remove the
 copy**. No local pet, care or breeding runs on RX. Copies do not age themselves;
 sharing again refreshes their appearance.
-
-## v0.6.0 · Configurable fish lifespan
-
-**Aquarium → Fish lifespan** adds optional expiry in hours or days (off by
-default). A new share renews the copy; duplicate packets, restarts and window
-transfers do not. Expired fish leave through the existing departure animation.
-Saved history remains, and manually removed copies stay hidden when changing
-this rule. Original pets and radio returns are unaffected.
-
-[Controls, migration and acceptance checks](docs/FISH-LIFESPAN.md).
-
-## v0.5.0 · Fish travel between disconnected areas
-
-**Animations → Travel between disconnected areas** offers Off (the default),
-Occasional and Frequent. A fish swims fully out of one water area before entering
-another, keeping its identity, model and saved visit. One journey runs at a time;
-full-outline routes and landing space are reserved before it leaves.
-
-Adjacent/overlapping windows remain one panoramic tank, not separate aquariums.
-Window gaps and splitting deadzones can create separate areas. Transfers use
-clear output edges or rectangular opaque blackouts; narrow/crowded layouts may
-have no safe route. Existing pickup actors remain for ordinary updates/removals;
-this first travel pass uses simple swim-out/swim-in choreography.
-
-[Controls and limitations](docs/DESKTOP-LAYOUT.md) ·
-[Verification and Windows retest](docs/TESTING-v0.5.0.md).
-
-Standalone only. No HA, firmware, radio, stored-visit or expiry changes.
-
-## v0.4.0 · Layout-aware scenery and edge shelves
-
-Decorations now automatically seek supported positions outside deadzones.
-Valid neighbours stay put; objects that cannot fit wait without leaving invisible
-collision bodies. **Decorations → Auto / Pinned** controls each library object,
-rock/coral cluster or plant. Automatic placement respects the full projected
-shape, preserves hollow ship/arch passages and remembers valid placements.
-
-**Deadzones → Edge shelf: auto** adds a ledge where a rectangular or rounded
-screen-edge zone has a suitable flat upper edge and clear water above it. Existing
-bubble columns can use these surfaces without increasing their particle budget.
-
-[Controls and limitations](docs/DESKTOP-LAYOUT.md) ·
-[Verification and Windows retest](docs/TESTING-v0.4.0.md).
-
-That standalone release added scenery placement and shelves; it did not include
-fish transfers, visitor expiry or new reef artwork.
-
-## v0.3.0 · Appearance and bubble columns
-
-Native **Aquarium → Appearance** controls now expose lighting, clock-based
-smooth day/night, solid/gradient water, fog, sand tint, effect motion and quality.
-Stable seeded bubble columns can rise from the floor or generated shelves using
-a bounded shared particle pool. Classic/static remains the default.
-
-[Controls, limits and HA behavior](docs/APPEARANCE.md) ·
-[Verification and hardware retest](docs/TESTING-v0.3.0.md).
-
-## v0.2.1 · Radio scrolling fix
-
-Chat history and the Tools activity log no longer disappear abruptly when
-scrolled. Scroll ranges now follow the actual rendered text, including wrapping
-and emoji, and reset when switching to an empty conversation. No database,
-firmware or radio protocol changes. See [verification](docs/TESTING-v0.2.1.md).
-
-## Radio workspace (v0.2.0)
-
-One connection now serves the aquarium **and** the everyday MeshCore client:
-
-- **Connection:** existing USB, Bluetooth and network settings/layout.
-- **Chat:** channels and direct messages, UTF-8 composer, local history, unread
-  counts, pagination, and honest sent / delivered / unconfirmed status.
-- **Contacts:** search/paginate, discovered nodes, add/rename/favorite/remove,
-  reset/share routes and import/export MeshCore contact URLs.
-- **Channels:** configure slots, standard hashtag keys or supplied private keys;
-  replacing/clearing a configured slot requires a second click.
-- **Device:** identity/battery/storage, name, RF settings, TX power, coordinates,
-  contact/location preferences, clock sync and local/flood advertisements.
-- **Tools:** remote login/logout, commands, status, decoded telemetry, route
-  discovery/manual paths and local radio statistics.
-
-There is still only **one serial-port owner**. RX events keep their original
-commit-before-ACK path. No automatic radio sends, automatic message retries, or
-firmware changes are introduced. This is not full stock-app parity: maps, QR
-scanning, firmware flashing, signing/identity-key management and raw-packet tools
-are not included. [Usage and limitations](docs/RADIO.md).
 
 ## Quick start — no radio required
 
@@ -199,11 +89,7 @@ display only: original Unicode names remain unchanged in radio data and the
 saved collection. The same fallback applies to labels, the selected-fish panel,
 messages, connection status and discovered device names.
 
-v0.1.7 fixes a Windows-only crash in the v0.1.6 emoji coverage check. Existing
-collections/settings remain compatible; no database reset or firmware update is
-needed. See [Windows Unicode regression checks](docs/TESTING-v0.1.7.md).
-
-### Fish arrivals and departures (v0.1.11)
+### Fish arrivals and departures
 
 Fish enter from above, settle into open water and begin their normal swimming.
 Removing a copy chooses a random, family-friendly exit: a toothless cartoon shark,
@@ -229,7 +115,7 @@ live in `tank/assets/transitions/`; editable original geometry is in
 `tank/transition_art.py`. No runtime dependencies, database migration or firmware
 update are needed. See [v0.1.11 testing notes](docs/TESTING-v0.1.11.md).
 
-### Floating channel chat (v0.1.8)
+### Floating channel chat
 
 Plain messages received by RX on **`#loragotchi-DX`** emerge from behind the sand
 in rounded chat bubbles, drift upward, and leave the top of the aquarium.
@@ -260,7 +146,7 @@ channel-message protocol. Synthetic protocol, serial/TCP and rendered pixel
 checks are documented in [v0.1.8 testing notes](docs/TESTING-v0.1.8.md).
 Physical radio/Windows validation of this new feature remains pending.
 
-### Continuous panoramic water (v0.1.10)
+### Continuous panoramic water
 
 Every aquarium window is a crop of **one shared 3D world**, using its actual
 **desktop X and Y position**, including negative origins and unequal sizes.
@@ -313,7 +199,7 @@ window view. Ordinary swimming and graphics changes preserve individual state;
 newly hidden fish are relocated when a window/deadzone layout changes. Names retain the cached text geometry introduced
 in v0.1.1.
 
-### Deadzones and display layouts (v0.1.4)
+### Deadzones and display layouts
 
 Open **Tab → Deadzones**. **Edges: on** is the default: the complete fish silhouette
 (body, fins and tail) stays within the union of non-minimized aquarium client
@@ -340,7 +226,7 @@ fish depths. **Edges: off** restores unrestricted gap-crossing; zones still appl
   preview outlines are always available. In v0.4.0, protected scenery relocates
   independently of Blackout. Water/sand remain visible unless Blackout is on.
 
-#### Projectors and round displays (v0.1.5)
+#### Projectors and round displays
 
 Each deadzone has independent switches in **Tab → Deadzones**:
 
@@ -394,9 +280,9 @@ Names and operator UI are optional. Synthetic mode is clearly labelled.
 ## RX connections
 
 Press **Tab → Radio → Connection**. The original connection form is retained
-inside the new Radio workspace. The controls are 432×724 pixels (scaling down
-for smaller windows); Aquarium, Deadzones, Decorations and Animations remain
-separate top-level tabs. See [Radio workspace](docs/RADIO.md) for chat and tools.
+inside the new Radio workspace. The optional operator opens at 1100×800 with a persistent sidebar and scrollable
+layouts for smaller windows; Aquarium, Deadzones, Decorations and Animations
+have separate sections. See [controls and save scopes](docs/CONTROLS.md). See [Radio workspace](docs/RADIO.md) for chat and tools.
 
 - **USB serial:** refresh the detected ports, choose your RX (or enter `COM4`,
   `/dev/ttyUSB0`, etc.), then **Connect**. Baud rate is 115200.
@@ -554,11 +440,3 @@ Original Author: https://github.com/DarkButterfly85/LoRagotchi-DX
 Fork: https://github.com/DrToxic/LoRagotchi-DX
 
 RX/DX firmware source and binaries are not included in this aquarium repository.
-
-## Tidal Garden graphics
-
-Tidal Garden is now the default scenery, including shaded animated seagrass. Classic remains available as the simpler alternative. Scenery style is separate from colour themes and quality presets. See [Scenery controls](docs/SCENERY.md).
-
-## Living aquarium candidate
-
-0.9.0 adds dynamic/object bubbles, fish activities, animated water, an opt-in local nursery and manual mesh-message games. See [controls and boundaries](docs/LIVING-AQUARIUM.md). DX egg transfer is not connected.
