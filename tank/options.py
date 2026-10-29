@@ -5,6 +5,7 @@ import textwrap
 from panda3d.core import TextNode
 from direct.gui import DirectGuiGlobals as DGG
 from direct.gui.DirectGui import DirectFrame, DirectLabel, DirectButton, DirectOptionMenu, DirectSlider, DirectEntry
+from .controls_shell import ControlsShell
 from .connection import ConnectionProfile
 from .settings import PRESETS
 from .deadzone_panel import DeadzonePanel
@@ -21,8 +22,8 @@ from .games_panel import GamesPanel
 from .travel_panel import TravelPanel
 
 
-class OptionsPanel:
-    WIDTH, HEIGHT = 432, 724
+class OptionsPanel(ControlsShell):
+    WIDTH, HEIGHT = 1100, 800
     TYPES = {'USB serial': 'serial', 'Bluetooth LE': 'ble', 'Network bridge': 'tcp'}
 
     def __init__(self, app):
@@ -33,37 +34,25 @@ class OptionsPanel:
         if app.args.connect:
             try: self.profile = ConnectionProfile.from_uri(app.args.connect, app.args.token_file)
             except ValueError: pass
-        self.root = DirectFrame(parent=app.pixel2d, frameSize=(0,self.WIDTH,-self.HEIGHT,0),
-                                frameColor=(.018,.065,.085,.97))
-        # Keep editing reachable even if a projector mask blacks the main view.
-        from .projection import configure_overlay_bins
-        configure_overlay_bins()
-        self.root.setBin('projector-controls',0,100)
-        self.label(self.root,'TANK CONTROLS',18,29,17)
-        self.button(self.root,'–',389,25,25,app.toggle_panel)
-        self.tabs = {name:self.button(self.root,name,18+i*81,66,78,lambda n=name:self.page(n))
-                     for i,name in enumerate(('Aquarium','Radio','Deadzones','Decorations','Animations'))}
-        for button in self.tabs.values():button["text_scale"]=11
-        self.pages = {name:DirectFrame(parent=self.root,frameColor=(0,0,0,0)) for name in self.tabs}
+        self.build_shell()
         self.build_aquarium(self.pages['Aquarium'])
-        self.pages['Lifespan']=DirectFrame(parent=self.root,frameColor=(0,0,0,0))
+        self.pages['Lifespan']=self.make_page()
         self.expiry=ExpiryPanel(self,self.pages['Lifespan'])
-        self.pages['Appearance']=DirectFrame(parent=self.root,frameColor=(0,0,0,0))
+        self.pages['Appearance']=self.make_page()
         self.appearance=AppearancePanel(self,self.pages['Appearance'])
-        self.pages['Themes']=DirectFrame(parent=self.root,frameColor=(0,0,0,0))
+        self.pages['Themes']=self.make_page()
         self.themes=ThemePanel(self,self.pages['Themes'])
-        self.pages['Transfers']=DirectFrame(parent=self.root,frameColor=(0,0,0,0))
+        self.pages['Transfers']=self.make_page()
         self.transfers=TravelPanel(self,self.pages['Transfers'])
-        self.pages['Nursery']=DirectFrame(parent=self.root,frameColor=(0,0,0,0))
+        self.pages['Nursery']=self.make_page()
         self.nursery=NurseryPanel(self,self.pages['Nursery'])
-        self.pages['Games']=DirectFrame(parent=self.root,frameColor=(0,0,0,0))
+        self.pages['Games']=self.make_page()
         self.games=GamesPanel(self,self.pages['Games'])
         self.radio=RadioPanel(self,self.pages['Radio'])
         self.deadzones=DeadzonePanel(self,self.pages['Deadzones'])
         self.decorations=DecorationPanel(self,self.pages['Decorations'])
         self.animations=AnimationPanel(self,self.pages['Animations'])
-        app.footer=self.label(self.root,'Starting aquarium…',18,665,12,396)
-        self.label(self.root,'Drag any aquarium to move; drag its edges to resize.\nTab brings controls here. Esc closes that aquarium.',18,699,12,396)
+        self.finish_shell()
         self.page('Aquarium'); self.resize()
         for key,operation in [('control-c','copy'),('control-x','cut'),('control-v','paste'),('control-shift-v','replace')]:
             app.accept(key,self.edit_clipboard,[operation])
@@ -108,33 +97,8 @@ class OptionsPanel:
         return field
 
     def build_aquarium(self,parent):
-        a=self.app
-        self.label(parent,'DISPLAY',18,105,12)
-        self.label(parent,'Graphics preset',18,139)
-        a.preset_menu=self.menu(parent,list(PRESETS),213,139,187,a.set_preset,
-                               list(PRESETS).index(a.settings.preset) if a.settings.preset in PRESETS else 2)
-        self.label(parent,'Render scale',18,179)
-        a.scale_slider=DirectSlider(parent=parent,range=(.25,1.5),value=a.settings.scale,pageSize=.05,
-                                    scale=85,pos=(300,0,-174),command=a.scale_label_update)
-        a.scale_label=self.label(parent,'',18,207,12)
-        self.button(parent,'Apply scale',18,240,120,a.apply_scale)
-        self.button(parent,'Fullscreen [F]',150,240,126,a.fullscreen)
-        self.button(parent,'Add window [V]',288,240,126,a.add_window)
-        a.output_label=self.label(parent,'',18,272,12)
-        self.chat_button=self.button(parent,'Channel chat: '+('on' if a.settings.chat_bubbles else 'off'),
-                                     18,315,396,a.toggle_chat)
-        self.label(parent,'DISPLAYED FISH',18,336,12)
-        a.fish_label=self.label(parent,'',18,363,14,392)
-        self.button(parent,'Next fish',18,416,120,a.select_next)
-        self.button(parent,'Remove copy',150,416,126,a.remove_selected)
-        self.button(parent,'Names [N]',288,416,126,a.toggle_names)
-        a.end_button=self.button(parent,'End display session',18,464,396,a.end_session)
-        a.message_label=self.label(parent,'Inbox: no messages',18,505,12,392)
-        self.button(parent,'Appearance & advanced graphics',18,548,396,lambda:self.page('Appearance'))
-        self.button(parent,'Fish lifespan',18,594,190,lambda:self.page('Lifespan'))
-        self.button(parent,'Breeding nursery',224,594,190,lambda:self.page('Nursery'))
-        self.button(parent,'Mesh message games',18,634,396,lambda:self.page('Games'))
-        a.clear_confirm=0; a.scale_label_update()
+        self.build_overview(parent)
+        self.build_performance(self.pages['Performance'])
 
     def build_radio(self,parent):
         self.label(parent,'CONNECT TO LoRagotchi-RX',18,105,12)
@@ -228,6 +192,7 @@ class OptionsPanel:
         self.refresh()
 
     def refresh(self):
+        self.refresh_shell()
         self.nursery.refresh()
         if self.active_page=='Lifespan':self.expiry.refresh()
         self.radio.refresh_hint()
@@ -242,25 +207,15 @@ class OptionsPanel:
             self.app.clear_confirm=0;self.app.end_button['text']='End display session'
 
     def page(self,name):
-        self.blur()
-        for key,frame in self.pages.items():
-            frame.show() if key==name else frame.hide()
-            if key in self.tabs:self.tabs[key]['frameColor']=(.14,.34,.37,1) if key==name else (.07,.16,.19,1)
-        self.active_page=name
-        if name=='Radio':self.radio.page(self.radio.active)
-        if name=='Lifespan':self.expiry.refresh()
-        if name=='Appearance':self.appearance.refresh()
-        if name=='Themes':self.themes.refresh()
-        if name=='Decorations':self.decorations.rebuild()
-        if name=='Transfers':self.transfers.refresh()
+        self.navigate(name)
 
-    def editing(self):return any(entry['focus'] for entry in self.entries)
+    def editing(self):return bool(getattr(self,'_close_dialog',None)) or any(entry.guiItem.getFocus() for entry in self.entries)
     def send_chat_shortcut(self):
-        if self.active_page=='Radio' and self.radio.active=='Chat' and self.radio.composer['focus']:
+        if self.active_page=='Radio' and self.radio.active=='Chat' and self.radio.composer.guiItem.getFocus():
             self.radio.send()
 
     def edit_clipboard(self,operation):
-        entry=next((entry for entry in self.entries if entry['focus'] and not entry.isHidden()),None)
+        entry=next((entry for entry in self.entries if entry.guiItem.getFocus() and not entry.isHidden()),None)
         if entry is None:return
         try:
             if operation in ('copy','cut'):
@@ -281,11 +236,11 @@ class OptionsPanel:
     def blur(self):
         for entry in self.entries:entry['focus']=0
     def next_field(self):
+        if getattr(self,'_close_dialog',None):return
         visible=[entry for entry in self.entries if not entry.isHidden()]
-        focused=next((i for i,e in enumerate(visible) if e['focus']),-1)
+        focused=next((i for i,e in enumerate(visible) if e.guiItem.getFocus()),-1)
         self.blur()
-        if visible:visible[(focused+1)%len(visible)]['focus']=1
+        if visible:
+            target=visible[(focused+1)%len(visible)];self.reveal_field(target);target['focus']=1
     def resize(self):
-        width,height=self.app.win.getXSize(),self.app.win.getYSize()
-        scale=min(1.,(width-24)/self.WIDTH,(height-24)/self.HEIGHT)
-        self.root.setScale(scale);self.root.setPos(max(12,width-self.WIDTH*scale-12),0,-12)
+        self.resize_shell()

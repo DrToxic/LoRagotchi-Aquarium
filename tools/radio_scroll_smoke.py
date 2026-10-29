@@ -12,7 +12,7 @@ def exercise(app):
     shots = Path('.local/radio-scroll')
     shots.mkdir(parents=True, exist_ok=True)
     props = WindowProperties()
-    props.setSize(456, 748)
+    props.setSize(1100, 800)
     app.win.requestProperties(props)
     for _ in range(12):
         app.taskMgr.step()
@@ -29,6 +29,7 @@ def exercise(app):
         return image
 
     def check_scroll(name, frame, label):
+        capture()  # PGScrollFrame applies the outer canvas transform during cull.
         pos = frame.getPos(app.pixel2d)
         scale = frame.getScale(app.pixel2d).x
         left, right, bottom, top = frame['frameSize']
@@ -83,16 +84,17 @@ def exercise(app):
     assert panel.transcript.verticalScroll.isHidden()
     panel.conversation = 'dm:112233445566'
     history(60)
-    props.setSize(366, 604)
+    props.setSize(800, 600)
     app.win.requestProperties(props)
     for _ in range(12):
         app.taskMgr.step()
     check_scroll('chat-scaled-dm', panel.transcript, panel.transcript_label)
-    props.setSize(456, 748)
+    props.setSize(1100, 800)
     app.win.requestProperties(props)
     for _ in range(12):
         app.taskMgr.step()
     panel.page('Tools')
+    controls.viewport.verticalScroll['value']=1
     for i in range(60):
         panel.on_event(dict(kind='radio_notice', text=f'Reply {i+1:03d}: 🐟 Remote status '
                             'and telemetry remain visible while scrolling.'))

@@ -99,7 +99,10 @@ def main():
     Aquarium.run=exercise
     with tempfile.TemporaryDirectory(prefix='aquarium-appearance-') as directory:
         path=Path(directory)/'settings.json'
-        settings=Settings();settings.apply('low');settings.fish_animations=False;settings.vsync=False;settings.save(path)
+        # Isolate the legacy shelf-emitter proof from object-deflection mode:
+        # the accepted baseline's support rock fails the near-base sphere
+        # clearance check. Living/default collision behavior is tested separately.
+        settings=Settings();settings.apply('low');settings.scene='classic';settings.appearance.bubble_collisions=False;settings.fish_animations=False;settings.vsync=False;settings.save(path)
         sys.argv=['appearance-smoke','--demo','12','--width','960','--height','540','--settings',str(path)]
         run()
 

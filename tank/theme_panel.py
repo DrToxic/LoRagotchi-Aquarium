@@ -26,7 +26,7 @@ class ThemePanel:
         controls.button(parent,'Import new theme',18,564,190,self.import_file)
         controls.button(parent,'Export selected',224,564,190,self.export_file)
         self.note=controls.label(parent,'',18,607,11,396)
-        controls.label(parent,'Edit and apply Appearance, then save a theme here.',18,644,10,396)
+        controls.button(parent,'Draft Classic appearance defaults',18,644,396,self.defaults)
         self.refresh()
 
     def status(self,text):self.note['text']=str(text)[:130];self.note.resetFrameSize()
@@ -80,3 +80,7 @@ class ThemePanel:
             with Path(self.path.get()).expanduser().open('xb') as stream:stream.write(encode(raw))
             self.status('Exported selected theme only. Use a new path for another export.')
         except (ValueError,OSError) as exc:self.status(exc)
+
+    def defaults(self):
+        self.controls.appearance.draft_defaults()
+        self.controls.page('Appearance')

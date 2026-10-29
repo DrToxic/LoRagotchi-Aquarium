@@ -2,6 +2,14 @@
 
 **Playing the mesh games?** [Two-player setup, rules and troubleshooting](docs/LIVING-AQUARIUM.md#games-using-mesh-messages).
 
+## Native controls
+
+The optional desktop operator now opens at 1100×800 with a persistent sidebar,
+readable pixel-sized controls and scrollable smaller-window layouts. See
+[Controls and save scopes](docs/CONTROLS.md) for appearance drafts, previews,
+separate save actions and the feature map. Home Assistant managed mode remains
+display-only and continues to use HA Configuration, not this operator.
+
 ## Tidal Garden default scenery
 
 Tidal Garden is now the default native reef, with upgraded animated seagrass.

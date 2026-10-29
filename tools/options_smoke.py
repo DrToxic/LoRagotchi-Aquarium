@@ -33,13 +33,13 @@ def exercise(app):
         props=WindowProperties();props.setSize(width,height);app.win.requestProperties(props)
         for _ in range(4):app.taskMgr.step()
         app.on_window(app.win);controls.resize()
-        scale=min(1.,(width-24)/controls.WIDTH,(height-24)/controls.HEIGHT)
-        assert abs(app.panel.getSx()-scale)<1e-5
-        assert abs(app.panel.getX()+controls.WIDTH*scale-(width-12))<1e-3
-        assert controls.HEIGHT*scale<=height-24+.01
+        assert app.panel.getSx()==1
+        assert app.panel.getX()==0
+        assert controls.root['frameSize']==(0,width,-height,0)
+        assert controls.viewport['frameSize'][1]<=width-254
         controls.page('Aquarium');app.graphicsEngine.renderFrame()
         assert app.win.saveScreenshot(f'.local/v013-options-{width}.png')
-    print('PASS compact panel fixed at 432x724px on 720p/1440p/4K; fits smaller windows',flush=True)
+    print('PASS resizable native controls retain pixel text on 720p/1440p/4K and scroll smaller windows',flush=True)
     props=WindowProperties();props.setSize(1280,720);app.win.requestProperties(props)
     for _ in range(4):app.taskMgr.step()
     app.on_window(app.win);controls.resize();controls.page('Radio')

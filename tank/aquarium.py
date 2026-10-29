@@ -49,7 +49,7 @@ class Aquarium(ShowBase):
         if args.no_lighting:self.settings.lighting=False
         if args.no_caustics:self.settings.caustics=False
         if args.no_vsync:self.settings.vsync=False
-        loadPrcFileData("tank",f"window-title LoRagotchi Aquarium — Controls\nwin-size 456 748\nwin-origin 32 32\nundecorated false\nfullscreen false\nsync-video {str(self.settings.vsync).lower()}\naudio-library-name null\nframebuffer-multisample 0\ntextures-power-2 none\nnotify-level warning\n")
+        loadPrcFileData("tank",f"window-title LoRagotchi Aquarium — Controls\nwin-size 1100 800\nwin-origin 32 32\nundecorated false\nfullscreen false\nsync-video {str(self.settings.vsync).lower()}\naudio-library-name null\nframebuffer-multisample 0\ntextures-power-2 none\nnotify-level warning\n")
         configure_text()
         super().__init__();self.disableMouse();self.setBackgroundColor(.012,.075,.115,1)
         self.sim=Simulation(reefs=False);self.models={};self.roster=[];self.inbox=[];self.status="Starting aquarium…"
