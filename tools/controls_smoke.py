@@ -77,7 +77,8 @@ def exercise(app):
     click(ui.tabs['Windows & layout']);assert ui.active_page=='Deadzones'
     click(ui.tabs['Appearance']);assert field.get()=='0.73' and p.dirty
     assert app.settings.appearance.brightness==old_brightness
-    p.reset();assert p.confirming;p.cancel_reset();assert field.get()=='0.73'
+    click(p.reset_button);assert p.confirming
+    click(p.cancel_button);assert field.get()=='0.73' and 'Edits retained' in p.note['text']
     capture('appearance-dirty')
     ui.viewport.verticalScroll['value']=1;frames()
     click(p.apply_button);assert abs(app.settings.appearance.brightness-.73)<1e-6

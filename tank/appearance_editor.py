@@ -97,7 +97,7 @@ class AppearancePanel:
         self.dirty_label=controls.label(self.actions,'All changes saved',0,10,15,790)
         self.scope=controls.label(self.actions,'Apply & save affects appearance across all three tabs.',0,38,12,790)
         self.reset_button=controls.button(self.actions,'Reset edits',0,83,145,self.reset)
-        self.cancel_button=controls.button(self.actions,'Cancel',155,83,115,self.cancel_reset);self.cancel_button.hide()
+        self.cancel_button=controls.button(self.actions,'Cancel',155,83,115,self.cancel_reset_action);self.cancel_button.hide()
         self.apply_button=controls.button(self.actions,'Apply & save',288,83,202,self.apply)
         self.apply_button['frameColor']=(.79,.70,.49,1);self.apply_button['text_fg']=(.05,.12,.13,1)
         self.note=controls.label(self.actions,'Theme library actions and advanced quality save separately.',0,127,12,790)
@@ -270,3 +270,8 @@ class AppearancePanel:
         self.theme_menu['items']=list(self.theme_names)
         self.theme_menu.set(selected if selected in self.theme_names else 'Current applied look',fCommand=0)
         if warnings:self.note['text']='; '.join(warnings)[:130];self.note.resetFrameSize()
+
+    def cancel_reset_action(self):
+        self.cancel_reset()
+        self.note['text']='Edits retained. Nothing discarded or saved.'
+        self.note.resetFrameSize()

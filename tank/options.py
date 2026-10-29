@@ -66,9 +66,11 @@ class OptionsPanel(ControlsShell):
 
     def button(self,parent,text,x,y,width,command):
         def invoke(): self.blur(); command()
-        return DirectButton(parent=parent,text=text,text_scale=14,text_pos=(width/2,0),
+        button=DirectButton(parent=parent,text=text,text_scale=14,text_pos=(width/2,0),
                             text_fg=(.88,.97,.95,1),frameSize=(0,width,-9,21),
                             frameColor=(.10,.22,.25,1),relief=DGG.FLAT,pos=(x,0,-y),command=invoke)
+        if text=='Back' or text.lower().startswith('back to '):button.hide()
+        return button
 
     def enabled(self,button,enabled):
         state=DGG.NORMAL if enabled else DGG.DISABLED
