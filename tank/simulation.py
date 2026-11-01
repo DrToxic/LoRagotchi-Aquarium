@@ -6,6 +6,7 @@ import random
 from .collision import CollisionWorld, body_dimensions
 from .habitat import FISH_SCALES, TANK_LIMITS
 from .swim_volume import SwimVolume
+from .species import BENTHIC, JET_PROPULSION, PULSE_DRIVEN
 
 
 @dataclass
@@ -22,6 +23,18 @@ class Pose:
 
 def clamp(value, low, high):
     return max(low, min(high, value))
+
+
+def _locomotion_factor(species_id, phase):
+    pulse = max(0., math.sin(phase*.55))
+    if species_id == 6:return .25+1.05*pulse**8
+    if species_id in JET_PROPULSION:return .3+1.05*pulse**8
+    if species_id == 11:return .25+.55*pulse
+    if species_id == 8:return .42
+    if species_id == 9:return .38
+    if species_id == 12:return .20
+    if species_id == 13:return .14
+    return 1.
 
 
 class Swimmer:
@@ -91,7 +104,7 @@ class Simulation:
             distance=math.dist((s.x,s.y,s.z),s.courtship)
             s.pace_factor=0. if distance<1.3 else min(1.,distance/4)
             return s.courtship
-        if self.activity_mode == 'off' or s.travelling or s.species_id in (8,9,12,13):
+        if self.activity_mode == 'off' or s.travelling or s.species_id in BENTHIC:
             return s.goal
         s.activity_wait -= dt
         s.activity_left -= dt
@@ -162,8 +175,9 @@ class Simulation:
         # Prefer underused screen sectors, including edges/top/bottom. Nearby
         # low-density destinations win ties, avoiding endless centre crossings.
         candidates = []
+        vertical_cells = (0,) if s.species_id in BENTHIC else range(4)
         for x in range(6):
-            for z in range(4):
+            for z in vertical_cells:
                 cell = (x, z)
                 point = self.volume.candidate(s.rng, s.radius, cell, outline=s.outline)
                 if point is None or not self.physics.clear_at(s.stage, point, s.heading, static_only=True):
@@ -174,7 +188,7 @@ class Simulation:
                     continue
                 score = self.occupancy.get(cell, 0) + self.reservations.get(cell, 0)*.8
                 score += s.rng.uniform(0, 2) + distance*.08
-                if s.species_id in (8,9,12,13):
+                if s.species_id in BENTHIC:
                     # Prefer accessible low water, but never bypass volume,
                     # visibility, deadzone or collision checks.
                     score += point[2]*2.
@@ -306,7 +320,8 @@ class Simulation:
             dx, dy = dx/distance_xy, dy/distance_xy
             sx = sy = sz = 0.
             caution = 0.
-            forward_x, forward_y = math.cos(s.heading), math.sin(s.heading)
+            heading_offset = math.pi/2 if s.species_id == 9 else 0.
+            forward_x, forward_y = math.cos(s.heading+heading_offset), math.sin(s.heading+heading_offset)
             cell = (int(s.x//4), int(s.y//4), int(s.z//4))
             for ox in (-1, 0, 1):
                 for oy in (-1, 0, 1):
@@ -339,7 +354,8 @@ class Simulation:
                 if s.obstacle_ahead:
                     for sign in (-1.,1.):
                         h=s.heading+sign*.8
-                        side=(s.x+math.cos(h)*reach,s.y+math.sin(h)*reach,s.z+.4)
+                        course=h+heading_offset
+                        side=(s.x+math.cos(course)*reach,s.y+math.sin(course)*reach,s.z+.4)
                         if (self.physics.clear_at(s.stage,side,h,static_only=True) and
                             self.volume.path_clear((s.x,s.y,s.z),side,s.outline)):
                             s.avoid_turn=sign;break
@@ -357,24 +373,33 @@ class Simulation:
                 wall.append(max(0., low+s.radius+2-value)-max(0., value-(high-s.radius-2)))
             dx += clamp(sx, -2., 2.) + wall[0]
             dy += clamp(sy, -2., 2.) + wall[1]
-            desired = math.atan2(dy, dx)
+            desired = math.atan2(dy, dx)-heading_offset
             error = (desired-s.heading+math.pi)%math.tau-math.pi
             turn = clamp(error*1.4, -s.turn_rate, s.turn_rate)
             s.heading = (s.heading+turn*dt+math.pi)%math.tau-math.pi
+            forward_x, forward_y = math.cos(s.heading+heading_offset), math.sin(s.heading+heading_offset)
             # Desynchronised short glides without discarding the destination.
             glide = .5 if math.sin(self.time*.19+s.phase*.025) > .92 else 1.
-            locomotion = .55 if s.species_id in (8,9,12,13) else 1.
-            if s.species_id == 11:
-                # Slow propulsion pulses are per-identity, not a shared clock.
-                locomotion = .72 + .28*math.sin(s.phase*.6)
+            locomotion = _locomotion_factor(s.species_id, s.phase)
             target_speed = s.pace*s.pace_factor*locomotion*glide*(1-.4*min(1., abs(error)/1.5))*(1-.7*caution)
-            s.speed += (target_speed-s.speed)*(1-math.exp(-dt*2))
-            target_vz = clamp((gz-s.z)*.5 + clamp(sz, -1., 1.)*.7 + wall[2], -.65, .65)
-            s.vz += (target_vz-s.vz)*(1-math.exp(-dt*2))
-            target_bank = 0. if s.species_id in (8,9,12,13) else -turn*15
+            speed_response = 5. if s.species_id in PULSE_DRIVEN else 1.4 if s.species_id in BENTHIC else 2.
+            s.speed += (target_speed-s.speed)*(1-math.exp(-dt*speed_response))
+            if s.species_id == 11:
+                pulse = math.sin(s.phase*.55)
+                target_vz = clamp(.04+.38*max(0.,pulse)-.16*max(0.,-pulse)+
+                                  clamp(sz,-1.,1.)*.2+wall[2],-.4,.55)
+            elif s.species_id in BENTHIC:
+                target_vz = clamp((gz-s.z)*.22+clamp(sz,-1.,1.)*.35+wall[2],-.3,.3)
+            else:
+                target_vz = clamp((gz-s.z)*.5 + clamp(sz, -1., 1.)*.7 + wall[2], -.65, .65)
+            vertical_response = 4. if s.species_id == 11 else 2.
+            s.vz += (target_vz-s.vz)*(1-math.exp(-dt*vertical_response))
+            target_bank = 0. if s.species_id in BENTHIC else -turn*15
             s.bank += (target_bank-s.bank)*(1-math.exp(-dt*2.5))
             s.phase += dt*s.tail_rate*(.55+s.speed*.65)
-            velocities[key] = (math.cos(s.heading)*s.speed, math.sin(s.heading)*s.speed, s.vz)
+            horizontal_factor = .25 if s.species_id == 11 else 1.
+            velocities[key] = (forward_x*s.speed*horizontal_factor,
+                               forward_y*s.speed*horizontal_factor, s.vz)
         self.physics.advance(self.swimmers, velocities, dt)
         if not dt:return
         from panda3d.core import Vec3

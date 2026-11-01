@@ -61,7 +61,7 @@ def creature_model(s, detail, species):
             for i,(x,z) in enumerate(((-.39,-.02),(-.57,-.12),(-.68,-.28),(-.65,-.43))):
                 blob('shrimp-segment',(x,0,z),(.18-i*.02,.24-i*.03,.23-i*.025),accent if i%2 else body)
             poly('antenna',[(.3,-.05,.22),(.75,-.05,.55),(.4,-.05,.24)],accent)
-        if species == 8: poly('tail-fan',[(0,0,0),(-.45,0,.3),(-.32,0,0),(-.45,0,-.3)],parent=tail)
+        if species in (6,8): poly('tail-fan',[(0,0,0),(-.45,0,.3),(-.32,0,0),(-.45,0,-.3)],parent=tail)
     elif species in (7,10,11):
         blob('mantle',(0,0,.25),(.48,.35,.62) if species==7 else (.52,.4,.4))
         if species==7: poly('squid-tip',[(-.4,0,.5),(0,0,1.02),(.4,0,.5)])
@@ -92,7 +92,8 @@ def creature_model(s, detail, species):
 
 def animate_water(root,tail,fins,phase,speed):
     species=int(root.getTag('water-species'))
-    if species in (3,4,5): tail.setP(math.sin(phase)*20*speed)
+    if species==6: tail.setP(math.sin(phase*.9)*32*speed)
+    elif species in (3,4,5): tail.setP(math.sin(phase)*20*speed)
     else: tail.setH(math.sin(phase)*22*speed)
     for i,node in enumerate(fins):
         wave=math.sin(phase*.65+i*1.1)

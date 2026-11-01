@@ -90,6 +90,14 @@ def test_cetacean_and_jelly_motion_differ():
     assert a!=b and tuple(model.getScale())==(1.,1.,1.)
     model.removeNode()
 
+
+def test_shrimp_tail_flick_has_an_articulated_fan():
+    model,tail,fins=fish_model(snap(6),10)
+    assert not tail.find('**/tail-fan').isEmpty()
+    animate_water(model,tail,fins,1.,1.)
+    assert abs(tail.getP())>1
+    model.removeNode()
+
 def test_mixed_species_movement_is_bounded_and_population_retained():
     from tank.demo import visitors
     from tank.simulation import Simulation

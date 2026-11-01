@@ -2,6 +2,9 @@
 LABELS = ("Tropical fish", "Blowfish", "Shark", "Dolphin", "Whale", "Seal",
           "Shrimp", "Squid", "Lobster", "Crab", "Octopus", "Jellyfish",
           "Shell-dweller", "Sea star")
+BENTHIC = frozenset((8, 9, 12, 13))
+JET_PROPULSION = frozenset((7, 10))
+PULSE_DRIVEN = frozenset((6, 7, 10, 11))
 
 
 def known(species_id):
