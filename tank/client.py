@@ -18,6 +18,7 @@ class Client:
         self.channel_names={}
         self.pending_messages=deque(maxlen=100)
         self.radio=None
+        self.lrx_only=False
 
     def command(self,op,args=b""):
         payload=MAGIC+bytes([op])+struct.pack("<I",self.token)+args
@@ -79,6 +80,7 @@ class Client:
             if len(part)<3 or part[0]!=len(key) or part[1]!=32:raise ProtocolError("Invalid identity fragment")
             key.extend(part[2:])
         if len(key)!=32:raise ProtocolError("Invalid RX public key")
+        self.lrx_only=bool(capabilities[1] & 0x80)
         self.rx=key.hex();self.capabilities=dict(capacity=capabilities[0],transports=capabilities[1],storage_ok=bool(capabilities[3]))
         try:
             accepted=self.command(7,b"\x01")
@@ -111,7 +113,7 @@ class Client:
         return True
 
     def poll_messages(self):
-        if not getattr(self.transport,"supports_mesh_messages",True):return
+        if self.lrx_only or not getattr(self.transport,"supports_mesh_messages",True):return
         # The same consumer drains ordinary chat and LRX; no second port owner.
         self.transport.send(b"\x0a")
         end=time.monotonic()+2
