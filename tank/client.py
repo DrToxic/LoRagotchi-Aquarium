@@ -4,6 +4,11 @@ import time
 from collections import deque
 from .protocol import MAGIC, ProtocolError, channel_info, decode_event, mesh_message
 
+class CommandError(ProtocolError):
+    def __init__(self, status, message):
+        super().__init__(message)
+        self.status = status
+
 class Client:
     def __init__(self,transport,store,on_event=lambda e:None,token=None):
         self.transport,self.store,self.on_event=transport,store,on_event
@@ -22,7 +27,7 @@ class Client:
             packet=self.transport.receive(max(.1,end-time.monotonic()))
             if packet.startswith(MAGIC):
                 if len(packet)<6 or packet[4]!=op:raise ProtocolError("Unexpected RX response")
-                if packet[5]:raise ProtocolError({1:"Invalid RX command or lease expired",2:"RX already has an active consumer",3:"RX storage not ready"}.get(packet[5],"RX error"))
+                if packet[5]:raise CommandError(packet[5], {1:"Invalid RX command or lease expired",2:"RX already has an active consumer",3:"RX storage not ready"}.get(packet[5],"RX error"))
                 return packet[6:]
             self._ordinary(packet)
         raise TimeoutError("RX command timeout")
@@ -75,6 +80,13 @@ class Client:
             key.extend(part[2:])
         if len(key)!=32:raise ProtocolError("Invalid RX public key")
         self.rx=key.hex();self.capabilities=dict(capacity=capabilities[0],transports=capabilities[1],storage_ok=bool(capabilities[3]))
+        try:
+            accepted=self.command(7,b"\x01")
+            if accepted!=b"\x01":raise ProtocolError("Invalid Water negotiation response")
+            self.water=True
+        except CommandError as exc:
+            if exc.status!=1:raise
+            self.water=False
         return self.capabilities
 
     def poll(self):
@@ -82,7 +94,7 @@ class Client:
         if len(summary)!=6:raise ProtocolError("Invalid event summary")
         event_id,size=struct.unpack("<IH",summary)
         if not event_id:return False
-        if not 0<size<=80:raise ProtocolError("Event too large")
+        if not 0<size<=84:raise ProtocolError("Event too large")
         data=bytearray()
         while len(data)<size:
             chunk=self.command(3,struct.pack("<IH",event_id,len(data)))

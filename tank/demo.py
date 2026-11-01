@@ -3,6 +3,7 @@ import hashlib
 from .protocol import Snapshot, ReturnStatus
 
 RX=hashlib.sha256(b"synthetic-rx-not-a-radio").hexdigest()
+SYNTHETIC_OWNERS=frozenset(hashlib.sha256(f"synthetic-owner-{i}".encode()).hexdigest() for i in range(256))
 NAMES=("Coral", "Juniper", "Mango", "Lagoon", "Violet", "Ember", "Saffron", "Mint", "Pearl", "Indigo", "Copper", "Fern")
 
 def visitors(count=12):

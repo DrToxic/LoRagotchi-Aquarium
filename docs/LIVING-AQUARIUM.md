@@ -60,6 +60,47 @@ fraction between the parents' body colours in linear-light sRGB.
 is versioned `local-linear-srgb-v1`; `firmware_genome` remains null. No egg is
 removed, claimed, acknowledged or transmitted by the aquarium.
 
+### Demo breeding and eligibility
+
+Demo adult/elder visitors can use the same cave visit and storage flow: enable
+the nursery, select two different parents, then Invite pair to cave (HA uses
+opt-in automatic pairing). Demo founders are labelled **Gen 1**; newly created
+demo eggs record local Gen 2 ancestry, separately from their frozen snapshots
+and unchanged colour preview. This is local provenance, not a DX/player
+generation. Real/replay snapshot generations are unknown: the current Snapshot
+protocol carries stage but no age, birth time or generation.
+
+Only stages **2 (adult)** and **3 (elder)** qualify, checked in the parent menus,
+manual/automatic controller and storage model. Fry (0) and young (1) are never
+eligible, even when calling storage directly. No fish is promoted to adult for
+breeding. DX currently reaches adulthood at six hours and elder at three days;
+the aquarium uses the received stage, not elapsed time in the aquarium.
+Two fish with the same full owner identity cannot pair. Stale/changed/departed
+parents cancel without an egg; duplicate, empty and invalid selections report
+a status instead of terminating the event loop.
+
+Demo and live fish never mix for breeding. Switching to live clears demo
+pairing/eggs from the display, opens the separate live nursery, and ignores old
+worker results/requests. Synthetic parents are rejected in the live storage
+model. There is no import/export from the demo nursery to the live nursery.
+For pre-bred demo eggs that survive restart, explicitly choose a persistent
+--database path and the same --settings and --session; the default in-memory
+demo remains intentionally ephemeral. Existing eggs migrate additively: old
+IDs, parents, colour fractions and previews are not rerolled or assigned guessed
+lineage. New demo eggs alone get the local lineage annotation.
+
+**Hatching/adoption is not enabled by this fix.** Aquarium snapshots are display
+copies, not locally owned pets: there is no durable local-fish identity, ageing,
+hatch schedule, capacity/removal policy or adoption lifecycle. Their local RGB
+egg preview is not a DX H1 genome. A safe optional aquarium-only hatch mode
+would need a separate synthetic collection with saved identities/age/genes,
+clear egg consumption and restart semantics, and a decision about whether it
+remains demo-only or coexists visually with (but never breeds with) live copies.
+Recommended next decision: **demo-only local hatching first**, or finish the
+existing DX/RX adoption contract below; neither is silently inferred here.
+No hatch/adopt worker command consumes an egg, and no nursery action opens a
+radio, sends a message or changes the donor device.
+
 ### Egg adoption integration status
 
 The DX-side [EGG-ADOPTION.md specification](https://github.com/DrToxic/LoRagotchi-DX/blob/feature/egg-adoption-colours/EGG-ADOPTION.md)

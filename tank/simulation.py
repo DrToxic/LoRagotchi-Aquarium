@@ -29,6 +29,7 @@ class Swimmer:
         self.rng = random.Random(int.from_bytes(hashlib.sha256(owner.encode()).digest(), 'big'))
         rng = self.rng
         self.stage = stage
+        self.species_id = 0
         self.x = self.y = 0.; self.z = 7.
         self.heading = rng.uniform(-math.pi, math.pi)
         self.cruise = rng.uniform(.6, 1.35)
@@ -90,7 +91,7 @@ class Simulation:
             distance=math.dist((s.x,s.y,s.z),s.courtship)
             s.pace_factor=0. if distance<1.3 else min(1.,distance/4)
             return s.courtship
-        if self.activity_mode == 'off' or s.travelling:
+        if self.activity_mode == 'off' or s.travelling or s.species_id in (8,9,12,13):
             return s.goal
         s.activity_wait -= dt
         s.activity_left -= dt
@@ -173,6 +174,10 @@ class Simulation:
                     continue
                 score = self.occupancy.get(cell, 0) + self.reservations.get(cell, 0)*.8
                 score += s.rng.uniform(0, 2) + distance*.08
+                if s.species_id in (8,9,12,13):
+                    # Prefer accessible low water, but never bypass volume,
+                    # visibility, deadzone or collision checks.
+                    score += point[2]*2.
                 candidates.append((score, point, cell))
         if candidates:
             _, s.goal, s.goal_cell = min(candidates, key=lambda item: item[0])
@@ -197,8 +202,10 @@ class Simulation:
         unavailable=set()
         for key in sorted(by_owner):
             stage = by_owner[key].stage
+            species = getattr(by_owner[key], "species_id", 0)
             if key not in self.swimmers:
                 s = Swimmer(key, stage)
+                s.species_id = species
                 # Never cull an identity to make space. Try non-overlapping
                 # arrivals first; Bullet separates pathological overcapacity.
                 saw_candidate=False
@@ -218,6 +225,11 @@ class Simulation:
                 s.stage, s.radius = stage, 1.1*FISH_SCALES[stage]
                 s.outline = 1.75*FISH_SCALES[stage]
                 self.physics.add(key, stage, (s.x, s.y, s.z), s.heading)
+            s = self.swimmers[key]
+            if s.species_id != species:
+                s.species_id = species
+                s.remaining = 0.  # replan without moving or replacing the body
+                s.activity = 'cruise'; s.activity_left = 0.; s.pace_factor = 1.
         self.swimmers = dict(sorted(self.swimmers.items()))
         self._layout_dirty = True
 
@@ -351,11 +363,16 @@ class Simulation:
             s.heading = (s.heading+turn*dt+math.pi)%math.tau-math.pi
             # Desynchronised short glides without discarding the destination.
             glide = .5 if math.sin(self.time*.19+s.phase*.025) > .92 else 1.
-            target_speed = s.pace*s.pace_factor*glide*(1-.4*min(1., abs(error)/1.5))*(1-.7*caution)
+            locomotion = .55 if s.species_id in (8,9,12,13) else 1.
+            if s.species_id == 11:
+                # Slow propulsion pulses are per-identity, not a shared clock.
+                locomotion = .72 + .28*math.sin(s.phase*.6)
+            target_speed = s.pace*s.pace_factor*locomotion*glide*(1-.4*min(1., abs(error)/1.5))*(1-.7*caution)
             s.speed += (target_speed-s.speed)*(1-math.exp(-dt*2))
             target_vz = clamp((gz-s.z)*.5 + clamp(sz, -1., 1.)*.7 + wall[2], -.65, .65)
             s.vz += (target_vz-s.vz)*(1-math.exp(-dt*2))
-            s.bank += (-turn*15-s.bank)*(1-math.exp(-dt*2.5))
+            target_bank = 0. if s.species_id in (8,9,12,13) else -turn*15
+            s.bank += (target_bank-s.bank)*(1-math.exp(-dt*2.5))
             s.phase += dt*s.tail_rate*(.55+s.speed*.65)
             velocities[key] = (math.cos(s.heading)*s.speed, math.sin(s.heading)*s.speed, s.vz)
         self.physics.advance(self.swimmers, velocities, dt)
