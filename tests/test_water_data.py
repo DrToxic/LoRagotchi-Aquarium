@@ -40,3 +40,10 @@ def test_species_registry_is_permanent_and_unknown_safe():
     assert len(LABELS)==14 and LABELS[12]=='Shell-dweller'
     assert [render_id(i) for i in range(14)]==list(range(14))
     assert render_id(65535)==0 and label(65535)=='Unknown (fish)'
+
+
+def test_default_demo_includes_every_registered_species():
+    from tank.demo import DEFAULT_VISITOR_COUNT, visitors
+    from tank.species import LABELS
+    assert DEFAULT_VISITOR_COUNT == len(LABELS)
+    assert [fish.species_id for fish in visitors()] == list(range(len(LABELS)))

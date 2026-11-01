@@ -2,12 +2,12 @@
 import asyncio
 from dataclasses import asdict, dataclass
 import json
-import os
 from pathlib import Path
+from .paths import LOCAL_DATA_DIR
 
 
 def live_database():
-    return Path(os.environ.get('XDG_DATA_HOME', Path.home()/'.local'/'share'))/'loragotchi-tank'/'live.sqlite'
+    return LOCAL_DATA_DIR/'live.sqlite'
 
 
 @dataclass

@@ -169,6 +169,16 @@ def test_startup_storage_error_is_terminal_and_explained(tmp_path):
     finally:service.close()
 
 
+def test_default_storage_paths_are_inside_aquarium(tmp_path,monkeypatch):
+    from tank.connection import live_database
+    from tank.paths import AQUARIUM_DIR, DEFAULT_SETTINGS_PATH, LOCAL_DATA_DIR
+    monkeypatch.setenv('XDG_CONFIG_HOME',str(tmp_path/'config'))
+    monkeypatch.setenv('XDG_DATA_HOME',str(tmp_path/'data'))
+    assert LOCAL_DATA_DIR==AQUARIUM_DIR/'.local'
+    assert DEFAULT_SETTINGS_PATH==LOCAL_DATA_DIR/'settings.json'
+    assert live_database()==LOCAL_DATA_DIR/'live.sqlite'
+
+
 def test_explicit_cli_live_database_is_preserved(tmp_path,monkeypatch):
     radio=SimulatedRadio(1)
     monkeypatch.setattr('tank.service.open_transport',lambda *a,**k:radio)

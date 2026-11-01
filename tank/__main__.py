@@ -1,18 +1,19 @@
 import argparse
 from pathlib import Path
-import os
 from .connection import live_database
+from .demo import DEFAULT_VISITOR_COUNT
+from .paths import DEFAULT_SETTINGS_PATH
 
 def main():
     parser=argparse.ArgumentParser(description="LoRagotchi Community Tank — native 3D snapshot aquarium")
     mode=parser.add_mutually_exclusive_group()
-    mode.add_argument("--demo",type=int,nargs="?",const=12,help="bounded synthetic visitors (0..256), no radio")
+    mode.add_argument("--demo",type=int,nargs="?",const=DEFAULT_VISITOR_COUNT,help="bounded synthetic visitors (0..256), no radio")
     mode.add_argument("--replay",type=Path,help="JSONL records: rx public-key hex and payload hex")
     mode.add_argument("--connect",help="serial:PORT, ble:ADDRESS or tcp:HOST:PORT")
     parser.add_argument("--token-file",type=Path,help="32-byte pairing token for authenticated TCP bridge")
     parser.add_argument("--database",type=Path)
     parser.add_argument("--session",default="community")
-    parser.add_argument("--settings",type=Path,default=Path(os.environ.get('XDG_CONFIG_HOME',Path.home()/'.config'))/'loragotchi-tank'/'settings.json')
+    parser.add_argument("--settings",type=Path,default=DEFAULT_SETTINGS_PATH)
     parser.add_argument("--environment-file",type=Path,help=argparse.SUPPRESS)
     parser.add_argument("--preset",choices=("compatibility","low","balanced","high","ultra"))
     parser.add_argument("--width",type=int,default=1280);parser.add_argument("--height",type=int,default=720)
@@ -32,7 +33,7 @@ def main():
     for key,low,high in (("detail",8,48),("plants",0,100),("bubbles",0,100),("fps",10,240)):
         value=getattr(args,key)
         if value is not None and not low<=value<=high:parser.error(f"{key} must be {low}..{high}")
-    if args.demo is None and not args.connect and not args.replay:args.demo=12
+    if args.demo is None and not args.connect and not args.replay:args.demo=DEFAULT_VISITOR_COUNT
     if args.demo is not None and not 0<=args.demo<=256:parser.error("Demo fish count must be 0..256")
     if args.width<320 or args.height<180:parser.error("Output must be at least 320x180")
     if args.second_width is not None and args.second_width<320:parser.error("Second output width must be at least 320")
