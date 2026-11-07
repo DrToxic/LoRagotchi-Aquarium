@@ -19,6 +19,7 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--managed',action='store_true')
+    parser.add_argument('--legacy-roster',action='store_true',help='explicit pre-Water synthetic roster for historical nursery regression; no position override')
     parser.add_argument('--state-dir',type=Path)
     parser.add_argument('--reload',action='store_true')
     parser.add_argument('--clear-approach',action='store_true')
@@ -32,6 +33,13 @@ def main():
     import tank.service
     def no_radio(*args,**kwargs):raise AssertionError('Nursery must not open a radio')
     tank.service.open_transport=no_radio
+    if args.legacy_roster:
+        from tank.demo import events as demo_events
+        from tank.protocol import Snapshot
+        def legacy_events(count):
+            for event in demo_events(count):
+                yield replace(event,species_id=0,species_present=False) if isinstance(event,Snapshot) else event
+        tank.service.events=legacy_events
 
     def exercise(app):
         from panda3d.core import ClockObject
@@ -67,7 +75,7 @@ def main():
             (args.output/'restart.json').write_text(json.dumps(dict(full_native_process_restart=True,fish=expected)))
             return
         roster=list(app.roster);adults=[f for f in roster if f.stage in (2,3)]
-        report=dict(renderer=app.aquarium_window.getGsg().getDriverRenderer(),managed=args.managed)
+        report=dict(renderer=app.aquarium_window.getGsg().getDriverRenderer(),managed=args.managed,explicit_legacy_roster=args.legacy_roster)
         def clear_approach_fixture():
             # Test-only fixture: exercise descent/visit/commit from a known clear
             # approach, not the unrelated roaming planner's variable start pose.
@@ -136,6 +144,9 @@ def main():
             click(panel.create);assert app.nursery.pending==tuple(adults[:2]),app.nursery.status
             report['actual_native_invite_click']=True
         else:
+            # Select the same first eligible pair regardless of UI/frame time.
+            # This changes only the synthetic test clock, not fish positions.
+            app.sim.time=0
             if args.clear_approach:clear_approach_fixture()
             app.settings.nursery.automatic=True;app.nursery.next_attempt=0
             app.nursery.update(1/30)
@@ -153,7 +164,7 @@ def main():
         end=time.monotonic()+5
         while not app.nursery.eggs and time.monotonic()<end:
             app.nursery.update(.05);time.sleep(.01)
-        assert len(app.nursery.eggs)==1,(app.nursery.status,app.nursery.routes,app.nursery.visited)
+        assert len(app.nursery.eggs)==1,(app.nursery.status,app.nursery.routes,app.nursery.visited, {f.name:dict(species=f.species_id,stage=f.stage,pos=(s.x,s.y,s.z),heading=s.heading,goal=s.goal,courtship=s.courtship,speed=s.speed,visit=app.nursery.visit_time.get(f.owner)) for f in adults for s in [app.sim.swimmers[f.owner]]})
         frozen=app.nursery.eggs[0]
         assert frozen['lineage']==dict(rule='demo-ancestry-v2',ancestry_depth=1,pet_generation=1)
         assert frozen['preview']['firmware_genome'] is None

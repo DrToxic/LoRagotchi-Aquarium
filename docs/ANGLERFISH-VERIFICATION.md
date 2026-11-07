@@ -1,5 +1,9 @@
 # Anglerfish verification — 2026-11-07
 
+> Historical pre-integration local evidence. For the subsequently merged,
+> versioned source and changed test assumptions, see
+> [publication verification](PUBLICATION-2026-11-07.md).
+
 Local-only standalone and HA integration. No commits, pushes, merges, releases,
 firmware changes/flashes, real-radio use or owner-data access were performed.
 Existing nursery/hatch edits were captured before work and preserved.

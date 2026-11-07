@@ -7,11 +7,16 @@ from pathlib import Path
 import struct
 import subprocess
 import pytest
-from tank.demo import visitors, RX
+from tank.demo import visitors as demo_visitors, RX
 from tank.protocol import Snapshot, ProtocolError, encode_event, decode_event, MAGIC, bridge_command_allowed
 from tank.store import Store
 from tank.art import fish_model, colour, tint565
 from tank.anglerfish import is_anglerfish, colours, genetic_colour, animate
+
+
+def visitors(count=1):
+    # Explicit legacy wire fixtures, independent of the all-species demo default.
+    return (replace(f,species_id=0,species_present=False) for f in demo_visitors(count))
 
 
 def sample(**kw):
@@ -108,7 +113,7 @@ def test_juvenile_weights_and_no_inferred_h1(stage,bw,fw):
     assert eyes==(.90,.90,.90)
 
 
-def test_legacy_and_all_other_species_keep_preedit_geometry():
+def test_other_species_keep_published_remote_geometry():
     expected=json.loads((Path(__file__).parent/'fixtures/non_angler_geometry.json').read_text())
     for stage in range(4):
         for style in ('classic','rounded','faceted'):
@@ -117,11 +122,11 @@ def test_legacy_and_all_other_species_keep_preedit_geometry():
                              genes_present=True,body_gene=8,scales_gene=148,eyes_gene=6)
                 root,_,_=fish_model(fish,18,style)
                 assert not root.hasTag('fish-species')
-                assert mesh_hash(root)==expected[f'{stage}-{style}']
+                assert mesh_hash(root)==expected[f'{stage}-{style}-{species}']
                 root.removeNode()
             fish=replace(next(visitors(1)),stage=stage,species_id=14,species_present=False)
             root,_,_=fish_model(fish,18,style)
-            assert mesh_hash(root)==expected[f'{stage}-{style}'];root.removeNode()
+            assert mesh_hash(root)==expected[f'{stage}-{style}-absent'];root.removeNode()
 
 
 def test_bridge_permits_only_existing_water_negotiation_shape():

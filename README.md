@@ -1,5 +1,8 @@
 # LoRagotchi-Aquarium · v0.10.0
 
+Current source: **0.11.0** — [local nursery hatch](docs/LIVING-AQUARIUM.md),
+[Anglerfish](docs/ANGLERFISH.md), and [verification/limits](docs/PUBLICATION-2026-11-07.md).
+
 [Changes and version history](CHANGES.MD) · **Playing the mesh games?** [Two-player setup, rules and troubleshooting](docs/LIVING-AQUARIUM.md#games-using-mesh-messages).
 
 A native **Python + Panda3D** aquarium for shared LoRagotchi fish. Real 3D fish,
@@ -350,11 +353,15 @@ CLI commands are not forwarded. Both bridge and desktop need v0.2.0 for the
 new Radio workspace. Channel secrets and BLE PINs are filtered from bridge
 responses. No onboard WLAN RX build is supplied.
 
-The live SQLite database defaults to `~/.local/share/loragotchi-tank/live.sqlite`
-(or `XDG_DATA_HOME`). Settings use `~/.config/loragotchi-tank/settings.json` (or
-`XDG_CONFIG_HOME`). `--database`, `--settings`, and `--session` override these.
-Demo/replay default to an **in-memory** database, never the live roster. A copy is
-keyed by full owner public key within a session; matching names/IDs can coexist.
+Standalone state defaults to `.local/` inside the Aquarium directory. This
+contains settings, the live database, display layout, connection profile, game
+save, nursery databases, and custom themes. See [Local Storage](docs/STORAGE.md)
+for the complete inventory. Demo/replay use an **in-memory** database by default,
+never the live roster. `--settings` and `--database` accept explicit alternate
+paths; display, connection, game, nursery, and theme-library files follow the
+settings file's directory. Screenshots, theme import/export, and bridge tokens
+are written only to the paths explicitly selected for them. A copy is keyed by
+full owner public key within a session; matching names/IDs can coexist.
 
 ## Replay
 

@@ -2,6 +2,26 @@
 
 This history preserves the versioned and feature notes previously in the README. Current usage and setup remain in the [README](README.md).
 
+## v0.11.0 · Local nursery hatch and Anglerfish
+
+- Preserve the owner's already-published Water creature graphics/movement,
+  all-species default demo and LRX-only repeater support while integrating
+  the separately approved nursery, hatch and Anglerfish work.
+- Fix native parent selection; retain adult/elder eligibility, stale-command
+  rejection, collision-safe cave visits and immutable saved egg previews.
+- Add persistent, transactionally migrated local egg/fry collections and an
+  explicit exactly-once hatch into a permanent Gen 1 fry (lifetime 0).
+  HA keeps its viewer read-only and uses Configuration → Local hatch egg ID.
+- Render explicitly received species ID 14 as an original native Anglerfish,
+  with age/style/genetic expression and bounded animated lure; legacy RX
+  snapshots cannot identify species. Preserve all prior species art.
+- Keep replay, visitor storage and radio ownership separate. No DX adoption,
+  firmware update or automatic live deployment is included.
+
+See [nursery and hatch](docs/LIVING-AQUARIUM.md),
+[Anglerfish](docs/ANGLERFISH.md) and
+[publication verification](docs/PUBLICATION-2026-11-07.md).
+
 ## v0.10.0 · Native controls redesign
 
 The optional desktop operator now opens at 1100×800 with a persistent sidebar,

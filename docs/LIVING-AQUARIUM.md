@@ -1,4 +1,4 @@
-# Living aquarium — 0.9.0 candidate
+# Living aquarium
 
 Native Panda3D in both applications. No new runtime dependency, firmware change,
 radio ownership change, or modification to a visiting pet's identity/health/age.
@@ -50,7 +50,9 @@ Fry (0), young (1), and all locally hatched fry are ineligible, including direct
 storage calls. No fish is promoted or assigned an age to enable breeding.
 Parents must remain unchanged/present; blocked or hidden caves, arrival,
 departure, transfer and visit timeout cannot create phantom eggs. Routes use
-normal visible-water steering and solid collisions, never teleportation.
+normal visible-water steering and solid collisions, never teleportation. Directed
+jellyfish visits follow the validated waypoint height instead of the free-roaming
+vertical pulse; ordinary species motion resumes after the visit.
 
 Demo adult/elder fish can breed through this same flow. They are labelled
 **Demo (unowned)**, not Gen 1 pets. Local demo ancestry is tracked separately;
@@ -110,6 +112,13 @@ resurrects a removed fry. Replay fry remain in the replay collection.
 
 This is aquarium-only hatching, **not DX adoption**: no nursery operation opens a
 radio, sends an adoption packet, ACKs an RX event or changes a donor pet.
+
+### Received stages and DX timing
+
+The aquarium uses received stage, never elapsed visitor time. DX currently
+reaches adulthood at six hours and elder at three days; no age or pet generation
+is inferred from those timings. The persistent local-hatch rules above supersede
+the older demo-only, Gen 2 and no-hatching notes from the Water integration.
 
 ### Egg adoption integration status
 

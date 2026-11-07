@@ -16,8 +16,9 @@ class RadioSession:
         self.client, self.transport, self.emit, self.cancel = client, client.transport, emit, cancel
         self.history=RadioHistory(client.store.db)
         self.network=network
-        self.writable=not network
-        self.supported=bool(getattr(self.transport,'supports_mesh_messages',True))
+        self.lrx_only=bool(getattr(client,'lrx_only',False))
+        self.writable=not network and not self.lrx_only
+        self.supported=not self.lrx_only and bool(getattr(self.transport,'supports_mesh_messages',True))
         self.info={}; self.device={}; self.contacts={}; self.channels={}; self.discovered={}
         self.pending={}; self.early_acks=OrderedDict(); self.last_timestamp=self.history.last_timestamp(client.rx)
         self.tasks=deque(); self.loaded=False; self.loading=False
@@ -28,7 +29,7 @@ class RadioSession:
     def publish(self):
         # Copy snapshots across the worker/render boundary; never share mutable
         # contact dictionaries or channel secrets with DirectGUI.
-        self.emit(dict(kind='radio_state',rx=self.client.rx,supported=self.supported,
+        self.emit(dict(kind='radio_state',rx=self.client.rx,supported=self.supported,lrx_only=self.lrx_only,
                        writable=self.writable,loaded=self.loaded,loading=self.loading,
                        info=dict(self.info),device=dict(self.device),
                        contacts=[{k:v for k,v in c.items() if k!='raw'} for c in self.contacts.values()],
@@ -39,6 +40,7 @@ class RadioSession:
     def notice(self, text): self.emit(dict(kind='radio_notice',text=text))
 
     def request(self, payload, expected=(0,), *, write=False, collect=False):
+        if self.lrx_only: raise ValueError('This repeater exposes Aquarium intake only. Use the stock repeater CLI or radio admin for management.')
         if self.cancel(): raise ConnectionAbortedError('Radio operation cancelled')
         if not self.supported: raise ValueError('MeshCore client features need BLE MTU 179 or greater. USB is supported.')
         if write and not self.writable: raise ValueError('Bridge is read-only. Start it with --radio-control to enable writes.')
@@ -65,6 +67,7 @@ class RadioSession:
         raise TimeoutError('Radio command timed out; result may be unknown. No automatic resend.')
 
     def schedule_refresh(self):
+        if self.lrx_only: raise ValueError('Repeater tank connector: Aquarium intake only; manage through the stock repeater CLI or radio admin.')
         if not self.supported: raise ValueError('MeshCore client features need BLE MTU 179 or greater. Use USB.')
         if self.loading: return
         self.loading=True

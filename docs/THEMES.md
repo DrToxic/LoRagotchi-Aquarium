@@ -22,7 +22,7 @@ the same selected custom ID to update it. Built-ins cannot be overwritten.
 Import/export uses the explicit file path field. Export refuses an existing file;
 use a new filename. Import stores a new ID and does not silently replace a theme.
 The UI reports malformed files/conflicts. Custom files live in `themes/` beside
-the user's settings file, outside the installation. The applied appearance is
+the settings file (`.local/themes/` by default in a source checkout). The applied appearance is
 saved as a snapshot: editing a library file requires Load theme to reapply it.
 Ordinary Appearance edits keep working and don't require a custom theme.
 

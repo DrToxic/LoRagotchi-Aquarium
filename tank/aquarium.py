@@ -430,8 +430,12 @@ class Aquarium(ShowBase):
                 if swimmer.parked != model.isHidden():
                     model.hide() if swimmer.parked else model.show()
                 model.setPos(pose.x,pose.y,pose.z);model.setHpr(pose.heading,pose.bank,pose.pitch)
-            tail.setH(math.sin(pose.phase)*22*pose.speed)
-            for i,fin in enumerate(fins):fin.setH(math.sin(pose.phase*.65+i)*12)
+            if model.hasTag("water-species"):
+                from .water_art import animate_water
+                animate_water(model,tail,fins,pose.phase,pose.speed)
+            else:
+                tail.setH(math.sin(pose.phase)*22*pose.speed)
+                for i,fin in enumerate(fins):fin.setH(math.sin(pose.phase*.65+i)*12)
             animate_anglerfish(model,pose.phase)
         self.transitions.update(dt)
 

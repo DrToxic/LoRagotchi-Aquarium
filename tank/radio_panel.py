@@ -427,7 +427,10 @@ class RadioPanel:
             if selected:self.channel_detail['text']=display_text(f"Slot {selected['index']} · {'configured' if selected['occupied'] else 'empty'} · {selected['name'] or 'no name'}")
             self.tools_picker.set_items([(c['key'],c['name']+' · '+c['key'][:8]) for c in sorted(event['contacts'],key=lambda c:c['name'].casefold())])
             self.fill_device(event['info'],event['device'])
-            if not event['supported']:self.status['text']='Bluetooth MTU too small for chat/contacts. Use USB; fish intake still works.'
+            if not event['supported']:
+                self.status['text']=('Repeater tank connector: fish intake active. Manage via repeater CLI/radio admin.'
+                                     if event.get('lrx_only') else
+                                     'Bluetooth MTU too small for chat/contacts. Use USB; fish intake still works.')
             elif event['loaded'] and not event['writable']:self.status['text']='LAN bridge is read-only. Enable --radio-control on the bridge for writes.'
             self.refresh_enabled()
         elif kind=='radio_history':self.draw_history(event)

@@ -1,5 +1,9 @@
 # Nursery local-hatch verification
 
+> Historical pre-integration local evidence. For the subsequently merged,
+> versioned source and changed test assumptions, see
+> [publication verification](PUBLICATION-2026-11-07.md).
+
 Verified 2026-11-07. Local source only; no push, release, deployment, firmware flash,
 real-radio connection or owner data/settings mutation was performed.
 

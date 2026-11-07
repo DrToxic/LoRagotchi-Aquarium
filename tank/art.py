@@ -5,6 +5,7 @@ from editable mathematical source; no network or external asset downloader.
 """
 import math
 import random
+import colorsys
 from .habitat import FISH_SCALES, reef_rocks, coral_branches
 from panda3d.core import (GeomVertexFormat,GeomVertexData,GeomVertexWriter,GeomTriangles,Geom,GeomNode,
                          NodePath,PNMImage,Texture,TransparencyAttrib,CardMaker,Vec3)
@@ -17,6 +18,15 @@ def tint565(value):
 def colour(index,tint=65535):return PALETTE[index] if index<6 else tint565(tint)
 
 
+def expressed_colour(snapshot, role):
+    """Optional H1 genes override legacy palette without changing stored metadata."""
+    gene=getattr(snapshot, role+"_gene", None)
+    if isinstance(gene, int) and 8 <= gene <= 247:
+        return colorsys.hsv_to_rgb((gene-8)/240., 1., 1.)
+    if isinstance(gene, int) and 0 <= gene <= 6:
+        return colour(gene, snapshot.tint)
+    return colour(getattr(snapshot, role), snapshot.tint)
+
 def juvenile_colours(snapshot):
     """Express existing genes, never mutate them; DX weights, Aquarium palette.
 
@@ -26,8 +36,10 @@ def juvenile_colours(snapshot):
     transports use the legacy palette, not H1: conversion stays in colour().
     """
     ivory=tint565(0xFFBC)
-    def express(allele,weight):
-        genetic=colour(allele,snapshot.tint)
+    def express(role,weight):
+        allele=getattr(snapshot, role+"_gene", None)
+        if allele is None: allele=getattr(snapshot, role)
+        genetic=expressed_colour(snapshot,role)
         if allele==6:return genetic
         return tuple((genetic[k]*weight+ivory[k]*(8-weight))/8 for k in range(3))
     if getattr(snapshot,'kind','')=='local_fry':
@@ -35,8 +47,8 @@ def juvenile_colours(snapshot):
         genetic=snapshot.local_body_rgb
         return tuple(tuple((genetic[k]*w+ivory[k]*(8-w))/8 for k in range(3)) for w in (2,5))
     young=snapshot.stage==1
-    return (express(snapshot.body,5 if young else 2),
-            express(snapshot.scales if young else snapshot.body,6 if young else 5))
+    return (express("body",5 if young else 2),
+            express("scales" if young else "body",6 if young else 5))
 
 def mesh(name,vertices,triangles):
     data=GeomVertexData(name,GeomVertexFormat.getV3n3c4t2(),Geom.UHStatic)
@@ -83,10 +95,14 @@ def fish_model(snapshot,detail,style='classic'):
     if style not in STYLES:raise ValueError('Unknown fish style')
     from .anglerfish import is_anglerfish, anglerfish_model
     if is_anglerfish(snapshot):return anglerfish_model(snapshot,detail,style)
+    species=getattr(snapshot,'species_id',0)
+    if isinstance(species,int) and 1 <= species <= 13:
+        from .water_art import creature_model
+        return creature_model(snapshot,detail,species)
     # Every variant stays inside Classic's body/contact and projected fin envelope.
     rounded=style=='rounded';faceted=style=='faceted'
     if faceted:detail=min(detail,10)
-    root=NodePath("fish-"+snapshot.owner[:8]);body=colour(snapshot.body,snapshot.tint);scales=colour(snapshot.scales,snapshot.tint);eye=colour(snapshot.eyes,snapshot.tint)
+    root=NodePath("fish-"+snapshot.owner[:8]);body=expressed_colour(snapshot,"body");scales=expressed_colour(snapshot,"scales");eye=expressed_colour(snapshot,"eyes")
     juvenile=snapshot.stage in (0,1)
     if juvenile:
         body,scales=juvenile_colours(snapshot)

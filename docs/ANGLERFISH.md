@@ -16,11 +16,11 @@ joints, swimming/avoidance, transitions, visible-water layout and physical body
 bounds are unchanged. The mesh fits the previous contact/projected-fin envelope.
 Source panel P1 is retained as provenance, not used to erase Aquarium colour.
 
-**No other species art or nursery rules were changed.** This living branch still
-uses its original fish fallback for 0..13, unknown identities and absent species;
-it does not silently import the separate Water-species renderer branch. Existing
-local hatch remains a generic local fry; nursery portrait/egg preview semantics
-remain unchanged, not a new species-aware breeding/adoption implementation.
+**The owner's published Water species renderer is preserved.** IDs 1..13 retain
+their distinct existing geometry and movement; ID 0, unknown IDs and absent
+species retain the owner's fish fallback. Anglerfish selection requires explicit
+species presence and ID 14. Local hatch remains a generic fry; nursery portraits,
+egg-colour rules and DX adoption are not made species-aware by this feature.
 
 ## Authoritative source trace (read-only)
 
@@ -84,8 +84,8 @@ owner's physical receiver already runs that firmware.
 ## Synthetic demo and tests
 
 Use an isolated settings location and --demo 16 to include four explicit synthetic
-Anglerfish (fry, young, adult, elder); the first twelve and all existing demo names
-remain unchanged. Demo storage remains separate from live data and no radio opens.
+Anglerfish (fry, young, adult, elder); the first twelve retain their published Water species and all demo names
+remain unchanged. The normal default demo retains all 14 prior Water species. Demo storage remains separate from live data and no radio opens.
 
 - tests/test_anglerfish.py checks strict fields/presence, replay/session/expiry,
   all age/style joints/bounds, neutral genes, unchanged other-species geometry,
