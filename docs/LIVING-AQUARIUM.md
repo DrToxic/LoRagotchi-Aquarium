@@ -3,6 +3,13 @@
 Native Panda3D in both applications. No new runtime dependency, firmware change,
 radio ownership change, or modification to a visiting pet's identity/health/age.
 
+## Anglerfish
+
+Explicit species-capable RX snapshots can now select Anglerfish ID 14; legacy
+77-byte snapshots cannot identify species. See [Anglerfish](ANGLERFISH.md) for
+source-verified fields, genetics, demo and compatibility limits. No firmware or
+nursery change is implied.
+
 ## Bubbles and water
 
 Standalone: **Appearance → Bubbles / Water**. HA: **Configuration → Appearance**,
@@ -38,27 +45,71 @@ HAOS/Windows/GPU performance guarantees.
 Nursery. Enable the cave, optionally enable automatic pairing, choose 1–12 eggs
 and a 1–1440 minute rest per parent (default 6 eggs / 30 minutes).
 
-Two different full owner identities, adult or elder, visit the cave. Parents must
-remain unchanged and present throughout the visit. Arrival, departure, transfer,
-blocked/hidden cave, timeout or unavailable swim space cannot produce a phantom
-egg. Desktop also allows explicit parent selection. HA's managed viewer remains
-read-only; automatic pairing is opt-in through Configuration.
+Two different full owner identities, **adult (2) or elder (3)**, visit the cave.
+Fry (0), young (1), and all locally hatched fry are ineligible, including direct
+storage calls. No fish is promoted or assigned an age to enable breeding.
+Parents must remain unchanged/present; blocked or hidden caves, arrival,
+departure, transfer and visit timeout cannot create phantom eggs. Routes use
+normal visible-water steering and solid collisions, never teleportation.
 
-Eggs are stored transactionally on a dedicated storage worker. Capacity, immutable
-parents and both parent cooldowns commit together. Lowering capacity or disabling
-the nursery never deletes eggs. Demo/replay and live stores are separate; default
-in-memory demos remain ephemeral. Persistent stores are `nursery-live.sqlite3`,
-`nursery-demo.sqlite3` and `nursery-replay.sqlite3` beside settings, partitioned by
-the display session. Back up these files with the existing aquarium data.
+Demo adult/elder fish can breed through this same flow. They are labelled
+**Demo (unowned)**, not Gen 1 pets. Local demo ancestry is tracked separately;
+new eggs use demo-ancestry-v2 (ancestry depth 1, pet generation 1). Live
+snapshot age/generation are unknown; the wire protocol only supplies stage.
+Demo and live **parents never mix**. Source changes cancel pending visits and
+reject stale worker commands/results, but do not hide or discard local eggs.
 
-The nursery displays coloured eggs and two frozen **2D appearance portraits** per
-egg. Portraits are generated from the stored breeding-time appearance, not the
-parent's later live state. Colour previews use one stored random interpolation
-fraction between the parents' body colours in linear-light sRGB.
+### Persistent local collection and migration
 
-**Current release:** these are local eggs, not transferable DX genomes. The rule
-is versioned `local-linear-srgb-v1`; `firmware_genome` remains null. No egg is
-removed, claimed, acknowledged or transmitted by the aquarium.
+Eggs and local fry live in **nursery-local.sqlite3 beside the settings file**, even
+when demo visitor storage uses the default in-memory database. Keep the same
+settings directory and --session to restore them after restart. Demo/live
+nursery origins are separate internal scopes in this shared local collection;
+both are visible in Demo and Live. This does **not** insert synthetic snapshots
+into the live visitor database, RX ledger, companion state or radio protocol.
+Replay remains isolated in nursery-replay.sqlite3.
+
+Legacy nursery-demo.sqlite3 and nursery-live.sqlite3 are imported once per
+session/source, additively and transactionally; original files are retained.
+IDs, timestamps, parent JSON, stored colour preview/fraction and cooldowns remain
+unchanged. Conflicts fail closed and roll back that import for safe retry. Old
+demo-founders-v1 metadata remains stored verbatim, but its obsolete Gen 2
+label is presented as legacy ancestry, never a new pet's generation.
+Back up all nursery files with aquarium settings/data. Disabling the nursery,
+lowering capacity, switching Demo/Live or clearing visitor copies does not delete
+eggs. Separate settings directories/session names intentionally use separate
+collections; old databases edited after a completed import are not resynchronized.
+
+### Explicit local hatch
+
+Egg shelves show frozen **2D appearance portraits** of both breeding-time parents.
+Each egg stores a single linear-light sRGB colour interpolation preview
+(local-linear-srgb-v1, firmware_genome=null); it never rerolls on reload.
+
+On desktop, choose a stored egg and click **Hatch selected egg locally**. This
+atomically consumes that egg once and creates a saved, uniquely identified local
+fish: **fry, Gen 1, lifetime 0 (forever)**. It never ages, expires with visitor-copy
+lifespans, or breeds. Its body colour uses the exact stored preview with the
+usual pale fry expression, without RGB565 quantisation. It coexists visually
+with real visiting fish while staying out of visitor/companion storage.
+
+HA's viewer remains read-only. Full egg IDs are printed in the app log. To hatch
+one explicitly, set **Configuration → Local hatch egg ID** (nursery_hatch_egg)
+to the exact 32-character ID, save and restart. Empty (default) means no hatch.
+Clear it afterwards for clarity; repeat restarts with the same ID are idempotent,
+not another hatch. Missing/invalid eggs fail without consuming another egg.
+Desktop also supports --hatch-local-egg ID using the same receipt path.
+
+The local-fry cap is 64, independent of visitor and egg capacity. A full cap,
+invalid preview or failed transaction leaves the egg untouched. Duplicate clicks,
+concurrent workers and restart retries cannot make a second fish. Consumed eggs
+and immutable parents/preview remain archived. Desktop Remove copy / Delete on a
+local fry removes only that fry; confirmed End display session also removes local
+fry, **not eggs or original pets**. Removal is durable and an old hatch retry never
+resurrects a removed fry. Replay fry remain in the replay collection.
+
+This is aquarium-only hatching, **not DX adoption**: no nursery operation opens a
+radio, sends an adoption packet, ACKs an RX event or changes a donor pet.
 
 ### Egg adoption integration status
 

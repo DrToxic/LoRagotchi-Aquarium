@@ -30,6 +30,10 @@ def juvenile_colours(snapshot):
         genetic=colour(allele,snapshot.tint)
         if allele==6:return genetic
         return tuple((genetic[k]*weight+ivory[k]*(8-weight))/8 for k in range(3))
+    if getattr(snapshot,'kind','')=='local_fry':
+        # Preserve immutable linear-sRGB egg preview without RGB565 quantisation.
+        genetic=snapshot.local_body_rgb
+        return tuple(tuple((genetic[k]*w+ivory[k]*(8-w))/8 for k in range(3)) for w in (2,5))
     young=snapshot.stage==1
     return (express(snapshot.body,5 if young else 2),
             express(snapshot.scales if young else snapshot.body,6 if young else 5))
@@ -77,6 +81,8 @@ def fin(name,points,color):
 def fish_model(snapshot,detail,style='classic'):
     from .themes import STYLES
     if style not in STYLES:raise ValueError('Unknown fish style')
+    from .anglerfish import is_anglerfish, anglerfish_model
+    if is_anglerfish(snapshot):return anglerfish_model(snapshot,detail,style)
     # Every variant stays inside Classic's body/contact and projected fin envelope.
     rounded=style=='rounded';faceted=style=='faceted'
     if faceted:detail=min(detail,10)

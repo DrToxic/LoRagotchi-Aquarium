@@ -24,8 +24,8 @@ def main():
 
     def exercise(app):
         deadline=time.monotonic()+10
-        while len(app.roster)<12 and time.monotonic()<deadline:app.taskMgr.step()
-        assert len(app.roster)==12
+        while (len(app.roster)<12 or app.nursery.pending_request) and time.monotonic()<deadline:app.taskMgr.step()
+        assert len(app.roster)==12 and not app.nursery.pending_request
         app.taskMgr.remove('aquarium-update')
         clock=ClockObject.getGlobalClock();clock.setMode(ClockObject.MNonRealTime);clock.setDt(1/60)
         def capture(name,controls=False):

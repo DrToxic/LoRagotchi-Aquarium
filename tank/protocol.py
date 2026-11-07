@@ -62,6 +62,14 @@ class Snapshot:
     appearance: bool
     name: str
     kind: str = "snapshot"
+    species_id: int = 0
+    body_gene: int | None = None
+    scales_gene: int | None = None
+    eyes_gene: int | None = None
+    panel: int | None = None
+    species_present: bool = False
+    genes_present: bool = False
+    panel_present: bool = False
 
 
 @dataclass(frozen=True)
@@ -79,8 +87,9 @@ def decode_event(rx, data):
         raise ProtocolError("RX identity must be a full 32-byte public key")
     if not data:
         raise ProtocolError("Empty event")
-    if data[0] == 1:
-        if len(data) != 77:
+    if data[0] in (1, 3):
+        expected = 77 if data[0] == 1 else 84
+        if len(data) != expected:
             raise ProtocolError(f"Invalid snapshot length {len(data)}")
         event_id = struct.unpack_from("<I", data, 1)[0]
         owner = data[5:37].hex()
@@ -90,7 +99,23 @@ def decode_event(rx, data):
             raise ProtocolError("Invalid fish appearance")
         name = data[53:77].split(b"\0", 1)[0].decode("utf-8", errors="replace")
         name = "".join(c for c in name if c.isprintable())[:24]
-        return Snapshot(rx, event_id, owner, fid, tx, stage, chr(mode), body, scales, eyes, tint, bool(appearance), name)
+        extra = {}
+        if data[0] == 3:
+            flags = data[77]
+            species = int.from_bytes(data[78:80], "little")
+            genes = tuple(data[80:83])
+            panel = data[83]
+            if flags & ~7 or (not flags & 1 and species) or (not flags & 2 and any(genes)) or (not flags & 4 and panel):
+                raise ProtocolError("Invalid Water metadata presence")
+            if flags & 2 and any(not (g <= 6 or 8 <= g <= 247) for g in genes):
+                raise ProtocolError("Invalid Water genes")
+            if flags & 4 and panel > 2:
+                raise ProtocolError("Invalid Water panel")
+            extra = dict(species_id=species, species_present=bool(flags & 1), genes_present=bool(flags & 2),
+                         panel_present=bool(flags & 4), body_gene=genes[0] if flags & 2 else None,
+                         scales_gene=genes[1] if flags & 2 else None, eyes_gene=genes[2] if flags & 2 else None,
+                         panel=panel if flags & 4 else None)
+        return Snapshot(rx, event_id, owner, fid, tx, stage, chr(mode), body, scales, eyes, tint, bool(appearance), name, **extra)
     if data[0] == 2 and len(data) == 11:
         event_id, snapshot_id, status, attempts = struct.unpack_from("<IIBB", data, 1)
         if status not in (1, 2) or attempts > 4:
@@ -102,9 +127,22 @@ def decode_event(rx, data):
 def encode_event(event):
     if isinstance(event, Snapshot):
         name = event.name.encode("utf-8")[:23].decode("utf-8", errors="ignore").encode("utf-8").ljust(24, b"\0")
-        return (b"\x01" + struct.pack("<I", event.event_id) + bytes.fromhex(event.owner)
+        data = (b"\x01" + struct.pack("<I", event.event_id) + bytes.fromhex(event.owner)
                 + struct.pack("<IIBBBBBHB", event.fish_id, event.tx_id, event.stage, ord(event.mode),
                               event.body, event.scales, event.eyes, event.tint, int(event.appearance)) + name)
+        flags = int(event.species_present) | int(event.genes_present) << 1 | int(event.panel_present) << 2
+        if flags:
+            if any(type(v) is not bool for v in (event.species_present, event.genes_present, event.panel_present)):
+                raise ProtocolError("Invalid Water presence")
+            species = event.species_id if event.species_present else 0
+            genes = (event.body_gene, event.scales_gene, event.eyes_gene) if event.genes_present else (0, 0, 0)
+            panel = event.panel if event.panel_present else 0
+            try:
+                data = b"\x03" + data[1:] + struct.pack("<BHBBBB", flags, species, *genes, panel)
+            except (struct.error, TypeError, OverflowError) as exc:
+                raise ProtocolError("Invalid Water metadata") from exc
+            decode_event(event.rx, data)
+        return data
     return b"\x02" + struct.pack("<IIBB", event.event_id, event.snapshot_id, 1 if event.status == "delivery-confirmed" else 2, event.attempts)
 
 
@@ -145,5 +183,5 @@ def bridge_command_allowed(payload, radio_control=False):
     from .meshcore_protocol import allowed_command, BRIDGE_CAPS
     if payload == BRIDGE_CAPS: return True
     if payload.startswith(MAGIC):
-        return len(payload) in (9,10,13,15) and len(payload)>=9 and len(payload)=={0:9,1:10,2:9,3:15,4:13,5:9}.get(payload[4])
+        return len(payload) in (9,10,13,15) and len(payload)>=9 and len(payload)=={0:9,1:10,2:9,3:15,4:13,5:9,7:10}.get(payload[4])
     return allowed_command(payload, write=radio_control)

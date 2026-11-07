@@ -33,27 +33,72 @@ class Store:
         accepted = datetime.fromtimestamp(self.clock() if now is None else now, timezone.utc).isoformat()
         body = json.dumps(asdict(event), sort_keys=True)
         old = self.db.execute("SELECT body FROM events WHERE rx=? AND event=?", (event.rx, event.event_id)).fetchone()
+        metadata_upgrade = bool(old)
         if old:
-            if old[0] != body:
+            previous_event = json.loads(old[0])
+            if not isinstance(event, Snapshot):
+                if previous_event != asdict(event):
+                    raise ProtocolError("RX reused an event ID with different contents; not acknowledged")
+                return False
+            previous_event = asdict(Snapshot(**previous_event))
+            incoming = asdict(event)
+            groups = (("species_present", ("species_id",)),
+                      ("genes_present", ("body_gene", "scales_gene", "eyes_gene")),
+                      ("panel_present", ("panel",)))
+            metadata = {key for present, fields in groups for key in (present, *fields)}
+            if any(previous_event[k] != incoming[k] for k in incoming if k not in metadata):
                 raise ProtocolError("RX reused an event ID with different contents; not acknowledged")
-            return False
-        self.db.execute("INSERT INTO events(rx,event,kind,body) VALUES(?,?,?,?)", (event.rx,event.event_id,event.kind,body))
+            upgraded = False
+            for present, fields in groups:
+                if previous_event[present] and incoming[present]:
+                    if any(previous_event[k] != incoming[k] for k in fields):
+                        raise ProtocolError("Conflicting Water metadata; not acknowledged")
+                elif previous_event[present]:
+                    incoming[present] = True
+                    for k in fields: incoming[k] = previous_event[k]
+                elif incoming[present]:
+                    upgraded = True
+            if not upgraded:
+                return False
+            event = Snapshot(**incoming)
+            self.db.execute("UPDATE events SET body=? WHERE rx=? AND event=?", (json.dumps(incoming, sort_keys=True),event.rx,event.event_id))
+        else:
+            self.db.execute("INSERT INTO events(rx,event,kind,body) VALUES(?,?,?,?)", (event.rx,event.event_id,event.kind,body))
         if isinstance(event, Snapshot):
             previous = self.db.execute("SELECT body FROM fish WHERE session=? AND owner=?", (self.session,event.owner)).fetchone()
             appearance = asdict(event)
+            if metadata_upgrade:
+                if not previous:
+                    return False  # old event cannot populate a new session
+                current = json.loads(previous[0])
+                if (current["rx"],current["event_id"],current["fish_id"]) != (event.rx,event.event_id,event.fish_id):
+                    return False  # enrich the ledger, never roll a newer copy back
             if previous:
                 prev = json.loads(previous[0])
                 # Preserve known genes on incomplete re-share, without claiming they're fresh.
-                if not event.appearance:
+                if prev.get("fish_id") == event.fish_id and not event.appearance:
                     for field in ("mode","body","scales","eyes","tint"):
                         appearance[field] = prev[field]
+                if prev.get("fish_id") == event.fish_id:
+                    for present, fields in (("species_present", ("species_id",)),
+                                            ("genes_present", ("body_gene", "scales_gene", "eyes_gene")),
+                                            ("panel_present", ("panel",))):
+                        if not appearance[present] and prev.get(present, False):
+                            appearance[present] = True
+                            for field in fields:
+                                appearance[field] = prev[field]
                 # RX replay must never roll a newer share backwards.
                 if prev["rx"] == event.rx and prev["event_id"] > event.event_id:
                     return False
+            if metadata_upgrade and previous:
+                # Negotiating the rich view cannot renew expiry on replay.
+                accepted = self.db.execute("SELECT updated FROM fish WHERE session=? AND owner=?",
+                                           (self.session,event.owner)).fetchone()[0]
             self.db.execute("INSERT INTO fish(session,owner,rx,event,body,updated) VALUES(?,?,?,?,?,?) "
                 "ON CONFLICT(session,owner) DO UPDATE SET rx=excluded.rx,event=excluded.event,body=excluded.body,updated=excluded.updated",
                 (self.session,event.owner,event.rx,event.event_id,json.dumps(appearance),accepted))
-            self.db.execute("DELETE FROM hidden WHERE session=? AND owner=?", (self.session,event.owner))
+            if not metadata_upgrade:
+                self.db.execute("DELETE FROM hidden WHERE session=? AND owner=?", (self.session,event.owner))
         elif isinstance(event, ReturnStatus):
             self.db.execute("INSERT INTO returns VALUES(?,?,?,?) ON CONFLICT(rx,snapshot) DO UPDATE SET status=excluded.status,attempts=excluded.attempts",
                             (event.rx,event.snapshot_id,event.status,event.attempts))

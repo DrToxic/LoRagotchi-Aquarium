@@ -59,12 +59,12 @@ def test_activity_independence_refresh_and_off():
 
 def test_nursery_transaction_capacity_restart_and_immutable_portraits(tmp_path):
     a,b,c=adults();settings=NurserySettings(True,False,2,30)
-    path=tmp_path/'nursery.db';store=NurseryStore(path,'live')
+    path=tmp_path/'nursery.db';store=NurseryStore(path,'live',mode='demo')
     ident=store.create(a,b,settings,now=100,egg_id='a'*32)
     egg=store.eggs()[0]
     assert egg['preview']['firmware_genome'] is None
     assert len(egg['parents'])==2
-    store.close();store=NurseryStore(path,'live')
+    store.close();store=NurseryStore(path,'live',mode='demo')
     assert store.eggs()==[egg]
     assert store.create(a,b,settings,now=101,egg_id=ident)==ident
     with pytest.raises(ValueError,match='resting'):store.create(a,c,settings,now=110)
@@ -77,7 +77,7 @@ def test_nursery_transaction_capacity_restart_and_immutable_portraits(tmp_path):
 
 
 def test_nursery_parallel_capacity_and_colour_rule(tmp_path):
-    a,b,c=adults();p=tmp_path/'eggs.db';s=NurseryStore(p,'x');other=NurseryStore(p,'x')
+    a,b,c=adults();p=tmp_path/'eggs.db';s=NurseryStore(p,'x',mode='demo');other=NurseryStore(p,'x',mode='demo')
     settings=NurserySettings(True,False,1,1)
     s.create(a,b,settings)
     with pytest.raises(ValueError,match='full'):other.create(b,c,settings)
@@ -124,7 +124,7 @@ def test_nursery_worker_restart_and_demo_live_separation(tmp_path):
         assert worker.submit('create',a=asdict(a),b=asdict(b),settings=config,id='b'*32)
         saved=worker.events.get(timeout=3)['eggs'];assert len(saved)==1
         assert worker.submit('open',mode='live')
-        assert worker.events.get(timeout=3)['eggs']==[]
+        assert worker.events.get(timeout=3)['eggs']==saved
     finally:worker.close()
     worker=NurseryWorker(args)
     try:
@@ -145,9 +145,10 @@ def nursery_controller():
         sim=SimpleNamespace(swimmers=swimmers,volume=SimpleNamespace(path_clear=lambda *args:True),time=0),
         placement=SimpleNamespace(records={'nursery:cave':record}))
     scene=NurseryScene.__new__(NurseryScene)
-    scene.app=app;scene.worker=worker;scene.pending_request=False;scene.eggs=[];scene.next_attempt=20
+    scene.app=app;scene.worker=worker;scene.pending_request=False;scene.pending=None;scene.eggs=[];scene.next_attempt=20
+    scene.mode='demo';scene.context=1;scene.open_retry=False;scene.refresh_in=1000.;scene.fish=[]
     scene.root=SimpleNamespace(getPos=lambda scene:(-4.8,-1.8,.15))
-    scene.request_pair(a,b);scene.routes={f.owner:2 for f in parents}
+    scene.request_pair(a,b)
     return scene,parents,commands,record
 
 
@@ -173,3 +174,33 @@ def test_unavailable_cave_or_changed_parent_cancels_without_egg(reason):
     if reason=='removed':scene.app.roster=[b]
     scene.update(1.)
     assert scene.pending is None and not commands
+
+
+@pytest.mark.parametrize('reason',['fry','young','stale','duplicate','live-demo'])
+def test_manual_controller_rejects_bypassed_ui(reason):
+    scene,(a,b),commands,_=nursery_controller();scene.pending=None
+    if reason=='fry':a=replace(a,stage=0);scene.app.roster=[a,b]
+    if reason=='young':a=replace(a,stage=1);scene.app.roster=[a,b]
+    if reason=='stale':scene.app.roster=[replace(a,name='changed'),b]
+    if reason=='duplicate':b=a
+    if reason=='live-demo':scene.mode='live'
+    with pytest.raises(ValueError):scene.request_pair(a,b)
+    assert scene.pending is None and not commands
+
+
+def test_automatic_ineligible_or_duplicate_candidates_never_crash_or_create():
+    for candidates in ([replace(p,stage=0) for p in adults()],
+                       [replace(p,stage=1) for p in adults()],
+                       [adults()[0],adults()[0]]):
+        scene,_,commands,_=nursery_controller();scene.pending=None
+        scene.app.roster=candidates;scene.app.settings.nursery.automatic=True;scene.next_attempt=0
+        scene.update(1.)
+        assert scene.pending is None and not commands
+
+
+def test_stale_worker_result_cannot_restore_demo_eggs_after_source_switch():
+    scene,_,_,_=nursery_controller();scene.pending=None
+    scene.context=2;scene.pending_request=True
+    scene.worker.events.put(dict(context=1,eggs=[{'id':'old'}],text='old demo result'))
+    scene.update(0)
+    assert not scene.eggs and scene.pending_request

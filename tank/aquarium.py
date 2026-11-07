@@ -7,6 +7,7 @@ from panda3d.core import (AmbientLight,DirectionalLight,Fog,WindowProperties,
 from direct.showbase.ShowBase import ShowBase
 from direct.gui.OnscreenText import OnscreenText
 from .art import fish_model,mesh
+from .anglerfish import animate as animate_anglerfish
 from .scenery import scenery
 from .settings import Settings,PRESETS
 from .simulation import Simulation
@@ -266,6 +267,14 @@ class Aquarium(ShowBase):
             self.status=f"Display settings could not save: {error}";return False
         return True
 
+    def merge_local_fish(self):
+        # Service roster remains visitor authority. Local fry never enter it.
+        visitors=getattr(self,'visitor_roster',[])
+        owners={f.owner for f in visitors}
+        self.roster=list(visitors)+[f for f in self.nursery.fish if f.owner not in owners]
+        self.selected=self.selected%len(self.roster) if self.roster else 0
+        self.sync_models()
+
     def sync_models(self):
         self.transitions.reconcile(self.roster)
         self._sync_fish_nodes()
@@ -358,10 +367,13 @@ class Aquarium(ShowBase):
         if self.roster:self.selected=(self.selected+1)%len(self.roster);self.show_names=True
     def end_session(self):
         if time.monotonic()<self.clear_confirm:
-            self.service.commands.put(("clear",));self.clear_confirm=0;self.end_button["text"]="End display session"
+            self.service.commands.put(("clear",));self.nursery.remove_fry();self.clear_confirm=0;self.end_button["text"]="End display session"
         else:self.clear_confirm=time.monotonic()+5;self.end_button["text"]="Click again to clear copies"
     def remove_selected(self):
-        if self.roster:self.service.commands.put(("remove",self.roster[self.selected%len(self.roster)].owner))
+        if self.roster:
+            fish=self.roster[self.selected%len(self.roster)]
+            if fish.kind=='local_fry':self.nursery.remove_fry(fish.owner)
+            else:self.service.commands.put(("remove",fish.owner))
     def select_fish(self,view=None,watcher=None):
         if not self.views:return
         view=view or self.views[0]
@@ -420,6 +432,7 @@ class Aquarium(ShowBase):
                 model.setPos(pose.x,pose.y,pose.z);model.setHpr(pose.heading,pose.bank,pose.pitch)
             tail.setH(math.sin(pose.phase)*22*pose.speed)
             for i,fin in enumerate(fins):fin.setH(math.sin(pose.phase*.65+i)*12)
+            animate_anglerfish(model,pose.phase)
         self.transitions.update(dt)
 
     def update(self,task):
@@ -438,8 +451,8 @@ class Aquarium(ShowBase):
                         # Switching demo/replay to live never leaves synthetic
                         # fish performing departures over the live collection.
                         self.transitions.destroy();self.transitions=FishTransitions(self)
-                    self.roster=new;self.sync_models()
-                    self.nursery.roster_mode(event.get("mode","demo"))
+                    self.visitor_roster=list(new)
+                    self.nursery.roster_mode(event.get("mode","demo"));self.merge_local_fish()
                     self.controls.mode=event.get("mode",self.controls.mode)
                 elif kind=="connection":
                     self.status=event["text"];self.controls.on_connection(event)
@@ -463,7 +476,7 @@ class Aquarium(ShowBase):
         moving=len(self.transitions.arrivals)+len(self.transitions.departures)+int(self.transitions.travel.active is not None)
         if moving:space_note+=f" · {moving} in transition"
         if self.lifespan.get("expired"):space_note+=f" · {self.lifespan['expired']} expired"
-        self.set_ui_text(self.footer,f"{len(self.roster)} shared fish{space_note}\n{self.status}")
+        self.set_ui_text(self.footer,f"{len(self.roster)} fish ({len(self.nursery.fish)} local fry){space_note}\n{self.status}")
         now=time.monotonic()
         if self.panel_visible and now>=self._next_ui_update:
             self._next_ui_update=now+.15
@@ -473,7 +486,8 @@ class Aquarium(ShowBase):
                                                if view else "No aquarium views — use Add window\n")+
                                f"{len(self.views)} aquarium window(s) · {self.settings.preset} · cap {self.settings.fps} fps")
             fish=self.roster[self.selected%len(self.roster)] if self.roster else None
-            self.set_ui_text(self.fish_label,f"{fish.name} · {['fry','young','adult','elder'][fish.stage]}\n{fish.owner[:16]}…" if fish else "No shared fish yet")
+            local_note="\nLocal Gen 1 · lifetime 0 (forever)" if fish and fish.kind=="local_fry" else ""
+            self.set_ui_text(self.fish_label,f"{fish.name} · {['fry','young','adult','elder'][fish.stage]}\n{fish.owner[:16]}…{local_note}" if fish else "No shared fish yet")
             self.set_ui_text(self.message_label,"Inbox: "+("\n".join(str(m.get('text',''))[:56] for m in self.inbox[-2:]) if self.inbox else "no messages"))
         for view in self.views:
             view.names.update(self.show_names,view.lens,self.camera,self.render,self.models,view.aspect)

@@ -105,7 +105,7 @@ class ControlsShell:
         self.label(parent,'Session actions',0,505,18)
         self.button(parent,'Remove copy',0,547,154,a.remove_selected)
         a.end_button=self.button(parent,'End display session',168,547,332,a.end_session)
-        self.label(parent,'Remove copy hides only the selected display copy.\nEnd session clears displayed copies; original pets are unchanged.',0,589,12,500)
+        self.label(parent,'Remove copy hides a visitor or removes a local fry.\nEnd session clears displayed copies; original pets are unchanged.',0,589,12,500)
         a.message_label=self.label(parent,'Inbox: no messages',0,630,12,500)
         a.clear_confirm=0
 
@@ -163,7 +163,8 @@ class ControlsShell:
         if not hasattr(self,'active_page'):return
         mode=self.mode.upper();self.mode_badge['text']=mode+' MODE' if mode!='LIVE' else 'LIVE COLLECTION'
         self.sidebar_hint['text']=('Synthetic fish' if self.mode=='demo' else 'Recorded fish' if self.mode=='replay' else 'Saved live copies')+'\n'+('Connected' if self.state=='connected' else 'No radio connected')
-        self.session_text['text']=f'{len(a.roster)} '+('synthetic' if self.mode=='demo' else 'recorded' if self.mode=='replay' else 'shared')+' fish displayed'
+        local_count=sum(f.kind=='local_fry' for f in a.roster)
+        self.session_text['text']=f'{len(a.roster)-local_count} '+('synthetic' if self.mode=='demo' else 'recorded' if self.mode=='replay' else 'shared')+f' fish + {local_count} local fry'
         self.connection_summary['text']=display_text(a.status)[:90]
         self.names_button['text']='Display names: '+('on' if a.show_names else 'off')
         self.chat_button['text']='Channel chat: '+('on' if a.settings.chat_bubbles else 'off')
@@ -177,7 +178,7 @@ class ControlsShell:
                 self.portrait.reparentTo(self.portrait_frame);self.portrait.setPos(83,-20,-90)
                 self.portrait.setScale(62);self.portrait.setLightOff();self.portrait.setDepthTest(False);self.portrait.setDepthWrite(False)
             self._portrait_signature=signature
-        self.fish_source['text']=('Synthetic display fish' if self.mode=='demo' else 'Recorded display fish' if self.mode=='replay' else 'Saved display copy') if fish else 'Select a fish when available.'
+        self.fish_source['text']='Local Gen 1 · permanent fry · lifetime 0' if fish and fish.kind=='local_fry' else ('Synthetic display fish' if self.mode=='demo' else 'Recorded display fish' if self.mode=='replay' else 'Saved display copy') if fish else 'Select a fish when available.'
         self.appearance.update_dirty()
         self.draft_badge['text']='UNSAVED CHANGES' if self.appearance.dirty else ''
         self.draft_badge['text_fg']=(.88,.77,.52,1)
@@ -226,6 +227,7 @@ class ControlsShell:
             self.connection_summary['text_wordwrap']=(460 if narrow else 365)/12
             self.display_options.setPos(0 if narrow else 532,0,-(740 if narrow else 266))
             content_height=870 if narrow else 558
+        elif page=='Nursery':content_height=930
         elif page=='Appearance':
             h=max(120,height-368);self.viewport['frameSize']=(0,w,-h,0)
             content_height=self.appearance.resize(w,h)

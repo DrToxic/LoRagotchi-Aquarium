@@ -58,6 +58,6 @@ class ExpiryPanel:
             text += f"\n{state['undated']} undated copies retained; re-share to start their timer"
         elif self.app.roster:
             fish = self.app.roster[self.app.selected % len(self.app.roster)]
-            text += '\n' + remaining_text(state.get('last_shared', {}).get(fish.owner),
-                                           state.get('hours', 0))
+            text += '\n' + ('Local fry · Gen 1 · lifetime 0 (forever)' if fish.kind=='local_fry' else remaining_text(state.get('last_shared', {}).get(fish.owner),
+                                           state.get('hours', 0)))
         self.app.set_ui_text(self.summary, text)
